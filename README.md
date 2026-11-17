@@ -44,8 +44,10 @@ The dashboard then:
 - Evaluates **18 configurable health rules** and flags each device as *critical*, *warning* or *OK* (see [Health rules](#health-rules)).
 - Shows a sortable, filterable table of every device and a full detail page for each one.
 - Lists **every issue across the fleet** in one place, with the most frequent problems one click away.
+- Keeps a **history** of each device and shows **what changed** between collections: programs installed or updated, Windows updates, disks filling up, new administrators, RAM upgrades… (see [History and changes](#history-and-changes)).
+- **Exports to CSV** from any view, or all at once from the console, ready to open in Excel.
 - Answers questions like *"which computers still have an old Chrome?"* or *"where is TeamViewer installed?"* with a software search across all devices.
-- Supports light and dark themes and works on mobile. Each tab has its own link (`#issues`, `#software`, `#device=NAME`).
+- Supports light and dark themes and works on mobile. Each tab has its own link (`#issues`, `#changes`, `#software`, `#device=NAME`).
 
 ![All issues](docs/issues.png)
 
@@ -106,6 +108,43 @@ Status: WARNING (2 issue(s))
   [info] Restart pending (Windows Update)
 Dashboard: C:\PCScope\output\report.html
 ```
+
+## History and changes
+
+Every time a device is collected again, its previous inventory is moved to `data\history\<DEVICE>\<date>.json` (the last 30 are kept; change it with `-HistoryLimit`, or `0` to disable). The dashboard compares consecutive snapshots and lists every change with the date it was detected:
+
+| Category | Detected changes |
+|---|---|
+| Software | Installed, uninstalled, version updated |
+| Windows | Monthly updates (build), feature updates, edition |
+| Storage | Disk usage moving 5 points or more, volumes and disks added or removed, disk health |
+| Security | Antivirus installed, removed, enabled or disabled; firewall; UAC; Secure Boot; BitLocker; local administrators added or removed |
+| Hardware | RAM, CPU, serial number (device swapped?), BIOS updates, battery wear |
+| Network / Users | IP address, network adapters, main user |
+
+Changes worth a look are marked **Review**: security being weakened (never strengthened), new administrators, hardware swaps, a disk crossing 90 %.
+
+![Changes between collections](docs/changes.png)
+
+The comparison is plain PowerShell, so it works from the console too:
+
+```powershell
+. .\src\History.ps1
+$before = Get-Content .\output\data\history\PC01\20261110-093000.json -Raw | ConvertFrom-Json
+$after  = Get-Content .\output\data\PC01.json -Raw | ConvertFrom-Json
+Compare-PCScopeInventory -Previous $before -Current $after | Format-Table category, message, notable
+```
+
+## Export to CSV
+
+- **From the dashboard:** every view has an *Export CSV* button that downloads exactly the rows shown, with the filter applied.
+- **From the console:** `-ExportCsv` writes `devices.csv`, `issues.csv`, `software.csv` and `changes.csv` to `<OutputPath>\export`:
+
+```powershell
+.\PCScope.ps1 -OutputPath \\fileserver\it\pcscope -ReportOnly -ExportCsv
+```
+
+Files are UTF-8 with BOM and use the list separator of the system language (`;` in Spanish, `,` in English), so a double-click opens them correctly in Excel, accents included.
 
 ## Collecting from a whole office
 
@@ -179,6 +218,8 @@ Each device page says how it was collected: locally, remotely or by the schedule
 | `-NoReport` | Only collect and save the JSON |
 | `-ReportOnly` | Do not collect; rebuild the dashboard from the existing JSON files |
 | `-RulesPath` | Health rules file. Default: `rules.json` |
+| `-HistoryLimit` | Previous inventories kept per device. Default: 30 (`0` disables history) |
+| `-ExportCsv` | Also export devices, issues, software and changes to CSV |
 | `-Open` | Open the dashboard when finished |
 
 The functions can also be used on their own:
@@ -201,6 +242,7 @@ Get-PCScopeInventory | ConvertTo-Json -Depth 8
 - [`src/Collector.ps1`](src/Collector.ps1) – one function per section (`Get-PCScopeHardware`, `Get-PCScopeSecurity`…), built on CIM/WMI, the registry and built-in cmdlets. Each section runs inside its own error handler.
 - [`src/Remote.ps1`](src/Remote.ps1) – sends the collector source to remote computers with `Invoke-Command`, saves each JSON and reports which computers failed and why.
 - [`src/Task.ps1`](src/Task.ps1) – installs and removes the scheduled task (copy, action, trigger, SYSTEM principal and settings).
+- [`src/History.ps1`](src/History.ps1) – archives previous inventories and compares snapshots into a timeline of changes.
 - [`src/Rules.ps1`](src/Rules.ps1) – evaluates [`rules.json`](rules.json) against an inventory and returns its issues, most severe first.
 - [`src/Report.ps1`](src/Report.ps1) – validates every JSON file, skips broken ones and embeds the data and issues in the template. Data is escaped so that text like `</script>` in a device name cannot break or inject code into the page.
 - [`src/report-template.html`](src/report-template.html) – the dashboard: vanilla HTML, CSS and JavaScript, no dependencies.
@@ -213,6 +255,7 @@ Some details that took care to get right:
 - Windows PowerShell 5.1 serializes dates as `\/Date(…)\/` and unrolls one-item arrays; PCScope converts dates to ISO 8601 and keeps lists as JSON arrays (both covered by tests).
 - Defender may report "real-time protection off" simply because another antivirus is active, so the antivirus check uses Windows Security Center instead.
 - Scheduled-task boot and logon triggers silently ignore `-RandomDelay`; PCScope sets their `Delay` property instead (found by a test).
+- The `-f` format operator follows the system language (`7,8 GB` in Spanish), while string interpolation does not; change messages use interpolation so they read the same everywhere (covered by a test running under `es-ES`).
 - .NET file APIs resolve relative paths against the process directory, not the PowerShell location, so every path is resolved with `GetUnresolvedProviderPathFromPSPath` first.
 
 ## Privacy
@@ -244,8 +287,9 @@ To try the dashboard with fictitious data locally:
 - [x] Health rules in a configurable `rules.json` (thresholds, enable/disable checks)
 - [x] Live demo on GitHub Pages with a generated fleet of fictitious devices
 - [x] Remote collection with `Invoke-Command` (WinRM) and a scheduled-task installer
-- [ ] History: detect changes between runs (new software, RAM changes, disk growth)
-- [ ] CSV export and optional email/Telegram alerts for critical issues
+- [x] History: detect changes between runs (new software, RAM changes, disk growth)
+- [x] CSV export from the console and from every dashboard view
+- [ ] Optional email/Telegram alerts for critical issues and notable changes
 
 ## License
 

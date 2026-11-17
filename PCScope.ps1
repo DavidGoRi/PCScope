@@ -40,6 +40,14 @@
 .PARAMETER RulesPath
     Health rules file. Default: rules.json next to this script.
 
+.PARAMETER HistoryLimit
+    Previous inventories kept per device in <OutputPath>\data\history, used to
+    show what changed between runs. 0 disables history. Default: 30.
+
+.PARAMETER ExportCsv
+    Also export devices, issues, software and changes to CSV files in
+    <OutputPath>\export (they open directly in Excel).
+
 .PARAMETER Open
     Open the dashboard in the default browser when finished.
 
@@ -82,6 +90,11 @@ param(
 
     [string] $RulesPath = (Join-Path $PSScriptRoot 'rules.json'),
 
+    [ValidateRange(0, 1000)]
+    [int] $HistoryLimit = 30,
+
+    [switch] $ExportCsv,
+
     [switch] $Open
 )
 
@@ -100,9 +113,8 @@ switch ($PSCmdlet.ParameterSetName) {
     'Local' {
         Write-Host "Collecting inventory of $env:COMPUTERNAME..."
         $inventory = Get-PCScopeInventory
-        $jsonFile = Join-Path $dataPath ("{0}.json" -f (ConvertTo-PCScopeFileName $inventory.computerName))
         $json = $inventory | ConvertTo-Json -Depth 8
-        [IO.File]::WriteAllText($jsonFile, $json, (New-Object Text.UTF8Encoding($false)))
+        $jsonFile = Save-PCScopeInventory -Json $json -DataPath $dataPath -HistoryLimit $HistoryLimit
 
         Write-Host ("Saved {0} ({1} programs, {2} s)" -f $jsonFile, @($inventory.software).Count, $inventory.collector.durationSeconds)
         foreach ($problem in $inventory.errors) {
@@ -126,7 +138,7 @@ switch ($PSCmdlet.ParameterSetName) {
         if (-not $ComputerName) { throw 'No computers to collect from.' }
 
         Write-Host "Collecting inventory of $(@($ComputerName).Count) computer(s) over PowerShell remoting..."
-        $remote = @{ ComputerName = $ComputerName; DataPath = $dataPath; ThrottleLimit = $ThrottleLimit }
+        $remote = @{ ComputerName = $ComputerName; DataPath = $dataPath; ThrottleLimit = $ThrottleLimit; HistoryLimit = $HistoryLimit }
         if ($Credential) { $remote.Credential = $Credential }
         $results = @(Invoke-PCScopeRemoteCollection @remote)
 
@@ -153,4 +165,9 @@ if (-not $NoReport) {
     $report = New-PCScopeReport -DataPath $dataPath -OutputFile (Join-Path $OutputPath 'report.html') -RulesPath $RulesPath
     Write-Host "Dashboard: $($report.FullName)"
     if ($Open) { Start-Process -FilePath $report.FullName }
+}
+
+if ($ExportCsv) {
+    $exported = @(Export-PCScopeCsv -DataPath $dataPath -OutputPath (Join-Path $OutputPath 'export') -RulesPath $RulesPath)
+    Write-Host "CSV files: $(Split-Path -Path $exported[0].FullName -Parent) ($(($exported | ForEach-Object { $_.Name }) -join ', '))"
 }

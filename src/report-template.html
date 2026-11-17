@@ -98,6 +98,7 @@ dt { color: var(--muted); } dd { margin: 0; overflow-wrap: anywhere; }
 .hidden { display: none !important; }
 .chips { gap: 6px; padding-top: 8px; padding-bottom: 8px; }
 .chip { padding: 3px 10px; font-size: 12px; }
+.chip.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 code { font: 12px Consolas, "Cascadia Mono", monospace; background: var(--surface-2); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; }
 @media (max-width: 640px) {
   header, main { padding-left: 16px; padding-right: 16px; }
@@ -117,6 +118,7 @@ code { font: 12px Consolas, "Cascadia Mono", monospace; background: var(--surfac
   <nav role="tablist">
     <button role="tab" data-view="devices" aria-selected="true">Devices</button>
     <button role="tab" data-view="issues" aria-selected="false">Issues</button>
+    <button role="tab" data-view="changes" aria-selected="false">Changes</button>
     <button role="tab" data-view="software" aria-selected="false">Software</button>
   </nav>
   <button class="btn" id="theme" title="Toggle theme">Theme</button>
@@ -127,6 +129,7 @@ code { font: 12px Consolas, "Cascadia Mono", monospace; background: var(--surfac
 "use strict";
 const DEVICES = /*PCSCOPE_DATA*/[];
 const ISSUES = /*PCSCOPE_ISSUES*/{};
+const CHANGES = /*PCSCOPE_CHANGES*/{};
 const GENERATED_AT = "{{GENERATED_AT}}";
 
 /* ---------- helpers ---------- */
@@ -154,7 +157,33 @@ DEVICES.forEach(d => {
 });
 
 /* ---------- state ---------- */
-const state = { view: "devices", filter: "", sort: { key: "status", dir: -1 }, swFilter: "", issueFilter: "" };
+const state = { view: "devices", filter: "", sort: { key: "status", dir: -1 }, swFilter: "", issueFilter: "", changeFilter: "", notableOnly: false };
+
+/* ---------- CSV export of the current view ---------- */
+let currentExport = null;   // { file, headers, rows } set by each view
+function exportButton() { return `<button class="btn" data-export title="Download the rows shown as CSV">Export CSV</button>`; }
+function downloadCsv(spec) {
+  // Excel expects ";" where the decimal separator is a comma (es-ES, fr-FR...)
+  const sep = (1.5).toLocaleString().includes(",") ? ";" : ",";
+  const cell = v => { const s = v == null ? "" : String(v); return /[";,\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+  const lines = [spec.headers, ...spec.rows].map(r => r.map(cell).join(sep));
+  const bom = String.fromCharCode(0xFEFF);   // lets Excel detect UTF-8
+  const url = URL.createObjectURL(new Blob([bom + lines.join("\r\n")], { type: "text/csv;charset=utf-8" }));
+  const a = document.createElement("a");
+  a.href = url; a.download = spec.file;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/* ---------- history of changes (computed by History.ps1) ---------- */
+DEVICES.forEach(d => { d._changes = list(CHANGES[d.computerName]); });
+const CATEGORY_ICON = { Software: "▣", Hardware: "⚙", Storage: "◧", Windows: "⊞", Security: "⛨", Network: "⇄", Users: "☺" };
+function changeRow(c, withDevice) {
+  return `<tr class="${withDevice ? "clickable" : ""}" ${withDevice ? `data-device="${esc(c.device)}"` : ""}>
+    <td>${fmtDate(c.date).slice(0, 10)}</td>${withDevice ? `<td><strong>${esc(c.device)}</strong></td>` : ""}
+    <td><span class="sub">${CATEGORY_ICON[c.category] || ""}</span> ${esc(c.category)}</td>
+    <td class="wrap">${esc(c.message)} ${c.notable ? pill("warn", "Review") : ""}</td></tr>`;
+}
 
 function maxDisk(d) {
   const v = list(d.storage && d.storage.volumes).map(x => x.usedPercent).filter(x => x != null);
@@ -203,8 +232,18 @@ function renderDevices() {
     .sort((a, b) => { const x = col.get(a), y = col.get(b); return (x > y ? 1 : x < y ? -1 : 0) * state.sort.dir; });
   const head = COLUMNS.map(c => `<th class="sortable" data-sort="${c.key}">${esc(c.label)}${state.sort.key === c.key ? `<span class="arrow">${state.sort.dir > 0 ? "▲" : "▼"}</span>` : ""}</th>`).join("");
   const body = rows.map(d => `<tr class="clickable" data-device="${esc(d.computerName)}">${COLUMNS.map(c => `<td class="${c.num ? "num" : ""}">${c.html(d)}</td>`).join("")}</tr>`).join("");
+  currentExport = {
+    file: "pcscope-devices.csv",
+    headers: ["Device", "Status", "Issues", "Manufacturer", "Model", "Serial number", "Type", "CPU", "RAM GB", "Windows", "Version", "Build", "Last update", "Fullest drive %", "Antivirus", "User", "IPv4", "Collected"],
+    rows: rows.map(d => {
+      const hw = d.hardware || {}, os = d.operatingSystem || {};
+      return [d.computerName, LEVEL_TEXT[d._status], d._issues.length, hw.manufacturer, hw.model, hw.serialNumber, hw.formFactor,
+        (hw.cpu || {}).name, (hw.memory || {}).totalGB, os.name, os.displayVersion, os.build, (os.lastUpdate || {}).date,
+        maxDisk(d), avName(d), (d.users || {}).lastLoggedOnUser, list(d.network).map(n => list(n.ipv4).join(" ")).join(" "), d.collectedAt];
+    }),
+  };
   return renderTiles() + `<section class="card">
-    <div class="toolbar"><h2>Devices</h2><input type="search" id="filter" placeholder="Filter by name, model, user…" value="${esc(state.filter)}" aria-label="Filter devices"></div>
+    <div class="toolbar"><h2>Devices</h2><input type="search" id="filter" placeholder="Filter by name, model, user…" value="${esc(state.filter)}" aria-label="Filter devices">${exportButton()}</div>
     <div class="table-wrap"><table><thead><tr>${head}</tr></thead><tbody>${body || `<tr><td colspan="${COLUMNS.length}" class="empty">No devices match the filter.</td></tr>`}</tbody></table></div>
   </section>`;
 }
@@ -221,11 +260,35 @@ function renderIssues() {
   const top = [...byRule.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6)
     .map(([rule, n]) => `<button class="btn chip" data-issue-filter="${esc(rule)}">${esc(rule)} <span class="sub">${n}</span></button>`).join("");
   const body = rows.map(i => `<tr class="clickable" data-device="${esc(i.device)}"><td>${pill(i.level, LEVEL_TEXT[i.level])}</td><td><strong>${esc(i.device)}</strong></td><td class="wrap">${esc(i.text)}</td><td><code>${esc(i.rule)}</code></td></tr>`).join("");
+  currentExport = { file: "pcscope-issues.csv", headers: ["Severity", "Device", "Issue", "Rule"], rows: rows.map(i => [LEVEL_TEXT[i.level], i.device, i.text, i.rule]) };
   return renderTiles() + `<section class="card">
-    <div class="toolbar"><h2>All issues <span class="sub">(${rows.length} of ${all.length})</span></h2><input type="search" id="issuefilter" placeholder="Filter by device, rule or text…" value="${esc(state.issueFilter)}" aria-label="Filter issues"></div>
+    <div class="toolbar"><h2>All issues <span class="sub">(${rows.length} of ${all.length})</span></h2><input type="search" id="issuefilter" placeholder="Filter by device, rule or text…" value="${esc(state.issueFilter)}" aria-label="Filter issues">${exportButton()}</div>
     ${top ? `<div class="toolbar chips"><span class="sub">Most frequent:</span>${top}</div>` : ""}
     <div class="table-wrap"><table><thead><tr><th>Severity</th><th>Device</th><th>Issue</th><th>Rule</th></tr></thead>
     <tbody>${body || `<tr><td colspan="4" class="empty">${all.length ? "No issues match the filter." : "No issues found on any device."}</td></tr>`}</tbody></table></div>
+  </section>`;
+}
+
+function renderChanges() {
+  const all = [];
+  DEVICES.forEach(d => d._changes.forEach(c => all.push(Object.assign({ device: d.computerName }, c))));
+  const byCategory = new Map();
+  all.forEach(c => byCategory.set(c.category, (byCategory.get(c.category) || 0) + 1));
+  const f = state.changeFilter.toLowerCase();
+  const rows = all
+    .filter(c => (!state.notableOnly || c.notable) && (!f || [c.device, c.category, c.type, c.message].join(" ").toLowerCase().includes(f)))
+    .sort((a, b) => String(b.date).localeCompare(String(a.date)) || a.device.localeCompare(b.device));
+  const notable = all.filter(c => c.notable).length;
+  const chips = [`<button class="btn chip${state.notableOnly ? " active" : ""}" data-notable>Needs review <span class="sub">${notable}</span></button>`]
+    .concat([...byCategory.entries()].sort((a, b) => b[1] - a[1])
+      .map(([cat, n]) => `<button class="btn chip${state.changeFilter === cat.toLowerCase() ? " active" : ""}" data-change-filter="${esc(cat.toLowerCase())}">${esc(cat)} <span class="sub">${n}</span></button>`)).join("");
+  currentExport = { file: "pcscope-changes.csv", headers: ["Date", "Device", "Category", "Type", "Change", "Needs review"], rows: rows.map(c => [c.date, c.device, c.category, c.type, c.message, c.notable ? "yes" : ""]) };
+  const tracked = DEVICES.filter(d => d._changes.length).length;
+  return `<section class="card">
+    <div class="toolbar"><h2>Changes between collections <span class="sub">(${rows.length} of ${all.length} · ${tracked} device${tracked === 1 ? "" : "s"} with history)</span></h2><input type="search" id="changefilter" placeholder="Filter by device, category or text…" value="${esc(state.changeFilter)}" aria-label="Filter changes">${exportButton()}</div>
+    ${all.length ? `<div class="toolbar chips">${chips}</div>` : ""}
+    <div class="table-wrap"><table><thead><tr><th>Detected</th><th>Device</th><th>Category</th><th>Change</th></tr></thead>
+    <tbody>${rows.map(c => changeRow(c, true)).join("") || `<tr><td colspan="4" class="empty">${all.length ? "No changes match the filter." : "No history yet: changes appear after a device has been collected at least twice."}</td></tr>`}</tbody></table></div>
   </section>`;
 }
 
@@ -249,8 +312,12 @@ function renderSoftware() {
     const versions = [...s.versions.entries()].map(([v, ds]) => `<div>${dash(v)} <span class="sub">— ${esc(ds.join(", "))}</span></div>`).join("");
     return `<tr><td class="wrap"><strong>${esc(s.name)}</strong></td><td class="wrap">${dash(s.publisher)}</td><td class="num">${devices.size}</td><td class="wrap">${versions}</td></tr>`;
   }).join("");
+  currentExport = {
+    file: "pcscope-software.csv", headers: ["Program", "Publisher", "Version", "Devices"],
+    rows: [].concat(...items.map(s => [...s.versions.entries()].map(([v, ds]) => [s.name, s.publisher, v, ds.join(" ")]))),
+  };
   return `<section class="card">
-    <div class="toolbar"><h2>Software across all devices <span class="sub">(${items.length} of ${map.size})</span></h2><input type="search" id="swfilter" placeholder="Search programs or publishers…" value="${esc(state.swFilter)}" aria-label="Search software"></div>
+    <div class="toolbar"><h2>Software across all devices <span class="sub">(${items.length} of ${map.size})</span></h2><input type="search" id="swfilter" placeholder="Search programs or publishers…" value="${esc(state.swFilter)}" aria-label="Search software">${exportButton()}</div>
     <div class="table-wrap"><table><thead><tr><th>Program</th><th>Publisher</th><th>Devices</th><th>Versions — installed on</th></tr></thead>
     <tbody>${rows || `<tr><td colspan="4" class="empty">No programs match the search.</td></tr>`}</tbody></table></div>
   </section>`;
@@ -334,6 +401,9 @@ function renderDetail(name) {
         <div class="toolbar"><h2>Installed software <span class="sub">(${software.length})</span></h2><input type="search" id="devsw" placeholder="Search programs…" aria-label="Search installed software"></div>
         <div class="table-wrap"><table><thead><tr><th>Program</th><th>Version</th><th>Publisher</th><th>Installed</th><th>Scope</th></tr></thead><tbody id="devswbody">${swRows}</tbody></table></div>
       </section>
+      <section class="card span-all"><h3>Changes${d._changes.length ? ` (${d._changes.length})` : ""}</h3>${d._changes.length
+        ? `<div class="table-wrap"><table><thead><tr><th>Detected</th><th>Category</th><th>Change</th></tr></thead><tbody>${d._changes.slice(0, 30).map(c => changeRow(c, false)).join("")}</tbody></table></div>`
+        : `<p class="empty">No history yet: changes appear after this device has been collected at least twice.</p>`}</section>
       ${errors}
     </div>`;
 }
@@ -344,12 +414,14 @@ const app = document.getElementById("app");
 function render() {
   const hash = decodeURIComponent(location.hash.slice(1));
   const deviceName = hash.startsWith("device=") ? hash.slice(7) : null;
-  if (["devices", "issues", "software"].includes(hash)) state.view = hash;
+  if (["devices", "issues", "changes", "software"].includes(hash)) state.view = hash;
+  currentExport = null;
   document.querySelectorAll("nav button").forEach(b => b.setAttribute("aria-selected", String(!deviceName && b.dataset.view === state.view)));
   if (!DEVICES.length) { app.innerHTML = `<p class="empty">No inventory data found. Run <code>PCScope.ps1</code> to collect some.</p>`; return; }
   app.innerHTML = deviceName ? renderDetail(deviceName)
     : state.view === "software" ? renderSoftware()
     : state.view === "issues" ? renderIssues()
+    : state.view === "changes" ? renderChanges()
     : renderDevices();
   if (deviceName) window.scrollTo(0, 0);
 }
@@ -362,12 +434,20 @@ app.addEventListener("input", e => {
   if (e.target.id === "filter") keepFocus("filter", v => state.filter = v)(e);
   else if (e.target.id === "swfilter") keepFocus("swfilter", v => state.swFilter = v)(e);
   else if (e.target.id === "issuefilter") keepFocus("issuefilter", v => state.issueFilter = v)(e);
+  else if (e.target.id === "changefilter") keepFocus("changefilter", v => state.changeFilter = v)(e);
   else if (e.target.id === "devsw") {
     const q = e.target.value.toLowerCase();
     document.querySelectorAll("#devswbody tr").forEach(tr => tr.classList.toggle("hidden", !!q && !tr.dataset.sw.includes(q)));
   }
 });
 app.addEventListener("click", e => {
+  if (e.target.closest("[data-export]")) { if (currentExport) downloadCsv(currentExport); return; }
+  if (e.target.closest("[data-notable]")) { state.notableOnly = !state.notableOnly; render(); return; }
+  const changeChip = e.target.closest("[data-change-filter]");
+  if (changeChip) {
+    state.changeFilter = state.changeFilter === changeChip.dataset.changeFilter ? "" : changeChip.dataset.changeFilter;
+    render(); return;
+  }
   const chip = e.target.closest("[data-issue-filter]");
   if (chip) {
     state.issueFilter = state.issueFilter === chip.dataset.issueFilter ? "" : chip.dataset.issueFilter;

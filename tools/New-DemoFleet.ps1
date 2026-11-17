@@ -18,11 +18,14 @@ param(
     [Parameter(Mandatory)] [string] $OutputPath,
     [ValidateRange(1, 500)] [int] $Count = 25,
     [int] $Seed = 2026,
-    [datetime] $Now = (Get-Date)
+    [datetime] $Now = (Get-Date),
+    [ValidateRange(0, 20)] [int] $HistorySnapshots = 3
 )
 
 $ErrorActionPreference = 'Stop'
 $rng = New-Object System.Random($Seed)
+# History uses its own generator, so adding or tuning it never changes the current fleet
+$historyRng = New-Object System.Random($Seed + 1)
 $OutputPath = $PSCmdlet.GetUnresolvedProviderPathFromPSPath($OutputPath)
 
 function Get-RandomItem([object[]] $Items) { return $Items[$rng.Next($Items.Count)] }
@@ -35,6 +38,72 @@ function Get-RandomNumber([double] $Min, [double] $Max, [int] $Digits = 0) {
     return [Math]::Round($Min + ($rng.NextDouble() * ($Max - $Min)), $Digits)
 }
 function Format-Date([datetime] $Date) { return $Date.ToString('yyyy-MM-ddTHH:mm:ss') }
+
+function New-DemoHistory {
+    <#
+    .SYNOPSIS
+        Writes older snapshots of a device, one week apart, by undoing
+        plausible changes: updates, installed programs, a fuller disk, a new
+        administrator, a RAM upgrade...
+    #>
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '', Justification = 'Called inside the ShouldProcess block of the script')]
+    param([string] $CurrentJson, [string] $Folder, [int] $Snapshots)
+
+    $chance = { param($p) $historyRng.NextDouble() -lt $p }
+    $newerJson = $CurrentJson
+    New-Item -ItemType Directory -Path $Folder -Force | Out-Null
+
+    for ($k = 1; $k -le $Snapshots; $k++) {
+        $older = $newerJson | ConvertFrom-Json
+        $collected = ([datetime]$older.collectedAt).AddDays(-7).AddHours(-$historyRng.Next(0, 6))
+        $older.collectedAt = Format-Date $collected
+
+        foreach ($volume in @($older.storage.volumes)) {
+            $volume.usedPercent = [Math]::Max(10, $volume.usedPercent - $historyRng.Next(1, 7))
+            $volume.freeGB = [Math]::Round($volume.sizeGB * (100 - $volume.usedPercent) / 100, 1)
+        }
+        $update = $older.operatingSystem.lastUpdate
+        if ($update -and [datetime]$update.date -gt $collected) {
+            # The last update was installed after this older snapshot: undo it
+            $parts = ([string]$older.operatingSystem.build).Split('.')
+            $older.operatingSystem.build = '{0}.{1}' -f $parts[0], [Math]::Max(1000, [int]$parts[1] - $historyRng.Next(80, 400))
+            $update.date = Format-Date ($collected.AddDays(-$historyRng.Next(20, 32)))
+            $update.title = $update.title -replace '^\d{4}-\d{2}', ('{0:yyyy-MM}' -f [datetime]$update.date)
+        }
+        $chrome = @($older.software | Where-Object { $_.name -eq 'Google Chrome' }) | Select-Object -First 1
+        if ($chrome -and (& $chance 0.5)) {
+            $v = $chrome.version.Split('.')
+            $chrome.version = '{0}.0.{1}.{2}' -f ([int]$v[0] - 1), $historyRng.Next(6000, 8000), $historyRng.Next(10, 99)
+        }
+        # Programs installed after this older snapshot did not exist yet
+        $optional = @($older.software | Where-Object { $_.installDate -and [datetime]$_.installDate -gt $collected })
+        if ($optional.Count) {
+            $installedLater = $optional[$historyRng.Next($optional.Count)].name
+            $older.software = @($older.software | Where-Object { $_.name -ne $installedLater })
+        }
+        if (& $chance 0.12) {
+            $older.software = @($older.software) + [pscustomobject]@{ name = 'WinRAR 7.01 (64-bit)'; version = '7.01.0'; publisher = 'win.rar GmbH'; installDate = $null; scope = 'Machine' }
+        }
+        $admins = @($older.security.localAdministrators)
+        if ($admins.Count -gt 2 -and (& $chance 0.7)) {
+            $older.security.localAdministrators = @($admins | Select-Object -First 2)
+        }
+        if ($older.hardware.memory.totalGB -ge 15 -and (& $chance 0.06)) {
+            $older.hardware.memory.totalGB = 7.8
+        }
+        $system = @($older.storage.volumes | Where-Object { $_.drive -eq 'C:' }) | Select-Object -First 1
+        if ($older.hardware.formFactor -eq 'Laptop' -and $system -and $system.bitLocker -eq 'On' -and (& $chance 0.15)) {
+            $system.bitLocker = 'Off'
+        }
+        if (& $chance 0.15) {
+            $adapter = @($older.network)[0]
+            $adapter.ipv4 = @('10.20.{0}.{1}' -f $historyRng.Next(10, 40), $historyRng.Next(20, 200))
+        }
+
+        $newerJson = $older | ConvertTo-Json -Depth 8
+        [IO.File]::WriteAllText((Join-Path $Folder ("{0:yyyyMMdd-HHmmss}.json" -f $collected)), $newerJson, (New-Object Text.UTF8Encoding($false)))
+    }
+}
 
 $departments = @(
     @{ Code = 'FRONT'; Laptop = 0.1; Software = @('Zoom Workplace') },
@@ -231,7 +300,11 @@ for ($i = 0; $i -lt $Count; $i++) {
     if (-not (Test-Path -Path $OutputPath)) { New-Item -ItemType Directory -Path $OutputPath -Force | Out-Null }
     $file = Join-Path $OutputPath "$name.json"
     if ($PSCmdlet.ShouldProcess($file, 'Write demo inventory')) {
-        [IO.File]::WriteAllText($file, ($inventory | ConvertTo-Json -Depth 8), (New-Object Text.UTF8Encoding($false)))
+        $currentJson = $inventory | ConvertTo-Json -Depth 8
+        [IO.File]::WriteAllText($file, $currentJson, (New-Object Text.UTF8Encoding($false)))
+        if ($HistorySnapshots -gt 0) {
+            New-DemoHistory -CurrentJson $currentJson -Folder (Join-Path $OutputPath "history\$name") -Snapshots $HistorySnapshots
+        }
     }
 }
 

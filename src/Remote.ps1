@@ -17,6 +17,8 @@
 # Runs on the remote computer. Receives the collector code as text, loads it
 # and returns the inventory as JSON (a string travels better than a
 # deserialized object).
+. (Join-Path $PSScriptRoot 'History.ps1')   # Save-PCScopeInventory
+
 $script:PCScopeRemoteScript = {
     param([Parameter(Mandatory)] [string] $CollectorSource)
 
@@ -44,18 +46,6 @@ function Get-PCScopeComputerList {
     return @($names | Select-Object -Unique)
 }
 
-function ConvertTo-PCScopeFileName {
-    <#
-    .SYNOPSIS
-        Makes a computer name safe to use as a file name.
-    #>
-    [CmdletBinding()]
-    [OutputType([string])]
-    param([Parameter(Mandatory)] [string] $Name)
-
-    return ($Name -replace '[^\w.-]', '_')
-}
-
 function Invoke-PCScopeRemoteCollection {
     <#
     .SYNOPSIS
@@ -74,7 +64,8 @@ function Invoke-PCScopeRemoteCollection {
         [Parameter(Mandatory)] [string[]] $ComputerName,
         [Parameter(Mandatory)] [string] $DataPath,
         [pscredential] $Credential,
-        [ValidateRange(1, 256)] [int] $ThrottleLimit = 32
+        [ValidateRange(1, 256)] [int] $ThrottleLimit = 32,
+        [ValidateRange(0, 1000)] [int] $HistoryLimit = 30
     )
 
     $DataPath = $PSCmdlet.GetUnresolvedProviderPathFromPSPath($DataPath)
@@ -100,8 +91,7 @@ function Invoke-PCScopeRemoteCollection {
         try {
             $inventory = [string]$response | ConvertFrom-Json -ErrorAction Stop
             if (-not $inventory.computerName) { throw 'missing computerName' }
-            $file = Join-Path $DataPath ("{0}.json" -f (ConvertTo-PCScopeFileName $inventory.computerName))
-            [IO.File]::WriteAllText($file, [string]$response, (New-Object Text.UTF8Encoding($false)))
+            $file = Save-PCScopeInventory -Json ([string]$response) -DataPath $DataPath -HistoryLimit $HistoryLimit
             $results[$target] = [pscustomobject][ordered]@{
                 ComputerName = $target; Status = 'OK'; Device = $inventory.computerName; File = $file
                 Seconds = $inventory.collector.durationSeconds; Message = ''

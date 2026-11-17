@@ -49,6 +49,20 @@ Describe 'Install-PCScopeTask' {
         Join-Path $install 'tools' | Should -Not -Exist
     }
 
+    It 'copies every source file, so the installed copy can run' {
+        # Guards against adding a new src\*.ps1 and forgetting to install it
+        # (Task.ps1 is only used by the installer itself)
+        foreach ($source in Get-ChildItem -Path (Join-Path $root 'src') -File | Where-Object Name -ne 'Task.ps1') {
+            Join-Path $install "src\$($source.Name)" | Should -Exist
+        }
+    }
+
+    It 'installs a copy that actually runs' {
+        $data = Join-Path $TestDrive 'task-output'
+        & (Join-Path $install 'PCScope.ps1') -OutputPath $data -NoReport -HistoryLimit 0 6>$null | Out-Null
+        Join-Path $data "data\$env:COMPUTERNAME.json" | Should -Exist
+    }
+
     It 'registers the task as SYSTEM with elevated rights' {
         Should -Invoke Register-ScheduledTask -Scope Describe -Times 1 -Exactly -ParameterFilter {
             $TaskPath -eq '\PCScope\' -and $Principal.UserId -like '*SYSTEM' -and $Principal.RunLevel -eq 'Highest'

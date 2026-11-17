@@ -23,6 +23,8 @@ PCScope recoge, en modo solo lectura, el inventario de cada PC: hardware, discos
   - advertencias: cortafuegos apagado, portátil sin BitLocker, batería gastada, administradores no previstos, programas no autorizados o desactualizados;
   - informativos: reinicio pendiente, poca RAM.
 - **Vista de todos los avisos** de la oficina, con los problemas más frecuentes a un clic.
+- **Historial de cambios**: guarda los inventarios anteriores de cada equipo y muestra qué ha cambiado entre recogidas: programas instalados o actualizados, actualizaciones de Windows, discos que se llenan, administradores nuevos, ampliaciones de RAM… Los cambios que conviene revisar aparecen marcados.
+- **Exportación a CSV** desde cualquier vista del panel o con `-ExportCsv`. Los archivos se abren bien en Excel, con tildes y con el separador del idioma del sistema.
 - **Buscador de software en todos los equipos:** "¿qué PC tiene todavía un Chrome antiguo?".
 
 ## Uso rápido
