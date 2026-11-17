@@ -116,12 +116,13 @@ code { font: 12px Consolas, "Cascadia Mono", monospace; background: var(--surfac
   </div>
   <span class="meta" id="meta"></span>
   <nav role="tablist">
-    <button role="tab" data-view="devices" aria-selected="true">Devices</button>
-    <button role="tab" data-view="issues" aria-selected="false">Issues</button>
-    <button role="tab" data-view="changes" aria-selected="false">Changes</button>
-    <button role="tab" data-view="software" aria-selected="false">Software</button>
+    <button role="tab" data-view="devices" aria-selected="true"></button>
+    <button role="tab" data-view="issues" aria-selected="false"></button>
+    <button role="tab" data-view="changes" aria-selected="false"></button>
+    <button role="tab" data-view="software" aria-selected="false"></button>
   </nav>
-  <button class="btn" id="theme" title="Toggle theme">Theme</button>
+  <button class="btn" id="lang"></button>
+  <button class="btn" id="theme"></button>
 </header>
 <main id="app"></main>
 
@@ -132,16 +133,207 @@ const ISSUES = /*PCSCOPE_ISSUES*/{};
 const CHANGES = /*PCSCOPE_CHANGES*/{};
 const GENERATED_AT = "{{GENERATED_AT}}";
 
+/* ---------- translations ----------
+   Interface texts live in I18N. Issue and change messages are produced in
+   English by PowerShell (Rules.ps1, History.ps1); ES_MESSAGES translates them
+   by pattern, so the data and the CSV exports stay language-neutral. */
+const I18N = {
+  en: {
+    "nav.devices": "Devices", "nav.issues": "Issues", "nav.changes": "Changes", "nav.software": "Software",
+    "theme": "Theme", "themeTitle": "Toggle light / dark theme", "lang": "ES", "langTitle": "Ver en español",
+    "meta": ({ n, d }) => `${n} device${n === 1 ? "" : "s"} · report generated ${d}`,
+    "noData": "No inventory data found. Run <code>PCScope.ps1</code> to collect some.",
+    "level.crit": "Critical", "level.warn": "Warning", "level.info": "Info", "level.ok": "OK",
+    "yes": "Yes", "no": "No", "unknown": "Unknown", "on": "On", "off": "Off", "active": "Active", "inactive": "Inactive",
+    "outdated": "Outdated", "none": "None", "review": "Review", "domain": "Domain", "dhcp": "DHCP", "static": "Static",
+    "build": "build", "daysAgo": n => `${n} d ago`, "ofTotal": ({ a, b }) => `${a} of ${b}`,
+    "export": "Export CSV", "exportTitle": "Download the rows shown as CSV",
+    "col.status": "Status", "col.device": "Device", "col.model": "Model", "col.windows": "Windows", "col.ram": "RAM",
+    "col.disk": "Fullest drive", "col.update": "Last update", "col.av": "Antivirus", "col.issues": "Issues", "col.collected": "Collected",
+    "col.severity": "Severity", "col.issue": "Issue", "col.rule": "Rule", "col.detected": "Detected", "col.category": "Category",
+    "col.change": "Change", "col.type": "Type", "col.program": "Program", "col.publisher": "Publisher", "col.devices": "Devices",
+    "col.versions": "Versions — installed on", "col.version": "Version", "col.serial": "Serial number", "col.cpu": "CPU",
+    "col.user": "User", "col.ipv4": "IPv4", "col.review": "Needs review", "col.date": "Date", "col.manufacturer": "Manufacturer",
+    "tile.devices": "Devices", "tile.split": ({ l, d }) => `${l} laptops · ${d} desktops`, "tile.healthy": "Healthy",
+    "tile.warnings": "Warnings", "tile.critical": "Critical", "tile.reboot": "Restart pending",
+    "devices.title": "Devices", "devices.filter": "Filter by name, model, user…", "devices.none": "No devices match the filter.",
+    "issues.title": "All issues", "issues.filter": "Filter by device, rule or text…", "issues.top": "Most frequent:",
+    "issues.noMatch": "No issues match the filter.", "issues.none": "No issues found on any device.",
+    "changes.title": "Changes between collections", "changes.tracked": n => `${n} device${n === 1 ? "" : "s"} with history`,
+    "changes.filter": "Filter by device, category or text…", "changes.review": "Needs review",
+    "changes.noMatch": "No changes match the filter.",
+    "changes.none": "No history yet: changes appear after a device has been collected at least twice.",
+    "changes.noneDevice": "No history yet: changes appear after this device has been collected at least twice.",
+    "software.title": "Software across all devices", "software.filter": "Search programs or publishers…",
+    "software.none": "No programs match the search.",
+    "collected.remote": "Collected remotely", "collected.task": "Collected by scheduled task", "collected.local": "Collected locally",
+    "collected.plain": "Collected", "collected.in": s => `in ${s} s`, "collected.as": u => `as ${u}`, "collected.noAdmin": "without admin rights",
+    "detail.back": "← All devices", "detail.notFound": "Device not found.", "detail.backList": "Back to the list",
+    "detail.issues": "Issues", "detail.noIssues": "No issues found.", "detail.changes": "Changes", "detail.errors": "Collection errors",
+    "hw.title": "Hardware", "hw.manufacturer": "Manufacturer", "hw.model": "Model", "hw.serial": "Serial number", "hw.type": "Type",
+    "hw.cpu": "CPU", "hw.cores": ({ c, t }) => `${c} cores · ${t} threads`, "hw.memory": "Memory", "hw.inUse": "in use",
+    "hw.bios": "BIOS", "hw.battery": "Battery", "hw.batteryText": ({ h, c }) => `${h}% health · ${c}% charged`,
+    "os.title": "Operating system", "os.edition": "Edition", "os.version": "Version", "os.installed": "Installed",
+    "os.lastBoot": "Last boot", "os.daysAgo": n => `${n} days ago`, "os.lastUpdate": "Last update", "os.reboot": "Restart pending",
+    "os.domain": "Workgroup / domain", "os.currentUser": "Current user", "os.lastUser": "Last logged on",
+    "sec.title": "Security", "sec.antivirus": "Antivirus", "sec.defender": "Defender", "sec.realtime": "Real-time",
+    "sec.signatures": "Signatures", "sec.firewall": "Firewall", "sec.uac": "UAC", "sec.secureBoot": "Secure Boot",
+    "sec.admins": "Local administrators",
+    "st.title": "Storage", "st.volume": "Volume", "st.size": "Size", "st.free": "Free", "st.used": "Used", "st.bitlocker": "BitLocker",
+    "st.physical": "Physical disk", "st.type": "Type", "st.health": "Health",
+    "net.title": "Network", "net.adapter": "Adapter", "net.gateway": "Gateway", "net.mode": "Mode", "net.none": "No active adapters.",
+    "sw.title": "Installed software", "sw.filter": "Search programs…", "sw.installed": "Installed", "sw.scope": "Scope",
+  },
+  es: {
+    "nav.devices": "Equipos", "nav.issues": "Avisos", "nav.changes": "Cambios", "nav.software": "Software",
+    "theme": "Tema", "themeTitle": "Cambiar entre tema claro y oscuro", "lang": "EN", "langTitle": "View in English",
+    "meta": ({ n, d }) => `${n} equipo${n === 1 ? "" : "s"} · informe generado el ${d}`,
+    "noData": "No hay datos de inventario. Ejecuta <code>PCScope.ps1</code> para recogerlos.",
+    "level.crit": "Crítico", "level.warn": "Advertencia", "level.info": "Info", "level.ok": "OK",
+    "yes": "Sí", "no": "No", "unknown": "Desconocido", "on": "Activado", "off": "Desactivado", "active": "Activo", "inactive": "Inactivo",
+    "outdated": "Desactualizado", "none": "Ninguno", "review": "Revisar", "domain": "Dominio", "dhcp": "DHCP", "static": "Estática",
+    "build": "compilación", "daysAgo": n => `hace ${n} d`, "ofTotal": ({ a, b }) => `${a} de ${b}`,
+    "export": "Exportar CSV", "exportTitle": "Descargar como CSV las filas que se ven",
+    "col.status": "Estado", "col.device": "Equipo", "col.model": "Modelo", "col.windows": "Windows", "col.ram": "RAM",
+    "col.disk": "Unidad más llena", "col.update": "Última actualización", "col.av": "Antivirus", "col.issues": "Avisos", "col.collected": "Recogido",
+    "col.severity": "Gravedad", "col.issue": "Aviso", "col.rule": "Regla", "col.detected": "Detectado", "col.category": "Categoría",
+    "col.change": "Cambio", "col.type": "Tipo", "col.program": "Programa", "col.publisher": "Fabricante", "col.devices": "Equipos",
+    "col.versions": "Versiones — instaladas en", "col.version": "Versión", "col.serial": "Número de serie", "col.cpu": "CPU",
+    "col.user": "Usuario", "col.ipv4": "IPv4", "col.review": "Para revisar", "col.date": "Fecha", "col.manufacturer": "Fabricante",
+    "tile.devices": "Equipos", "tile.split": ({ l, d }) => `${l} portátiles · ${d} sobremesa`, "tile.healthy": "Sin problemas",
+    "tile.warnings": "Advertencias", "tile.critical": "Críticos", "tile.reboot": "Reinicio pendiente",
+    "devices.title": "Equipos", "devices.filter": "Filtrar por nombre, modelo, usuario…", "devices.none": "Ningún equipo coincide con el filtro.",
+    "issues.title": "Todos los avisos", "issues.filter": "Filtrar por equipo, regla o texto…", "issues.top": "Más frecuentes:",
+    "issues.noMatch": "Ningún aviso coincide con el filtro.", "issues.none": "No hay avisos en ningún equipo.",
+    "changes.title": "Cambios entre recogidas", "changes.tracked": n => `${n} equipo${n === 1 ? "" : "s"} con historial`,
+    "changes.filter": "Filtrar por equipo, categoría o texto…", "changes.review": "Para revisar",
+    "changes.noMatch": "Ningún cambio coincide con el filtro.",
+    "changes.none": "Aún no hay historial: los cambios aparecen cuando un equipo se ha recogido al menos dos veces.",
+    "changes.noneDevice": "Aún no hay historial: los cambios aparecerán cuando este equipo se haya recogido al menos dos veces.",
+    "software.title": "Software de todos los equipos", "software.filter": "Buscar programas o fabricantes…",
+    "software.none": "Ningún programa coincide con la búsqueda.",
+    "collected.remote": "Recogido en remoto", "collected.task": "Recogido por la tarea programada", "collected.local": "Recogido en local",
+    "collected.plain": "Recogido", "collected.in": s => `en ${s} s`, "collected.as": u => `como ${u}`, "collected.noAdmin": "sin permisos de administrador",
+    "detail.back": "← Todos los equipos", "detail.notFound": "Equipo no encontrado.", "detail.backList": "Volver a la lista",
+    "detail.issues": "Avisos", "detail.noIssues": "Sin avisos.", "detail.changes": "Cambios", "detail.errors": "Errores de recogida",
+    "hw.title": "Hardware", "hw.manufacturer": "Fabricante", "hw.model": "Modelo", "hw.serial": "Número de serie", "hw.type": "Tipo",
+    "hw.cpu": "CPU", "hw.cores": ({ c, t }) => `${c} núcleos · ${t} hilos`, "hw.memory": "Memoria", "hw.inUse": "en uso",
+    "hw.bios": "BIOS", "hw.battery": "Batería", "hw.batteryText": ({ h, c }) => `${h} % de salud · ${c} % de carga`,
+    "os.title": "Sistema operativo", "os.edition": "Edición", "os.version": "Versión", "os.installed": "Instalado",
+    "os.lastBoot": "Último arranque", "os.daysAgo": n => `hace ${n} días`, "os.lastUpdate": "Última actualización", "os.reboot": "Reinicio pendiente",
+    "os.domain": "Grupo de trabajo / dominio", "os.currentUser": "Usuario actual", "os.lastUser": "Último inicio de sesión",
+    "sec.title": "Seguridad", "sec.antivirus": "Antivirus", "sec.defender": "Defender", "sec.realtime": "Tiempo real",
+    "sec.signatures": "Firmas", "sec.firewall": "Cortafuegos", "sec.uac": "UAC", "sec.secureBoot": "Arranque seguro",
+    "sec.admins": "Administradores locales",
+    "st.title": "Almacenamiento", "st.volume": "Volumen", "st.size": "Tamaño", "st.free": "Libre", "st.used": "Ocupado", "st.bitlocker": "BitLocker",
+    "st.physical": "Disco físico", "st.type": "Tipo", "st.health": "Estado",
+    "net.title": "Red", "net.adapter": "Adaptador", "net.gateway": "Puerta de enlace", "net.mode": "Modo", "net.none": "No hay adaptadores activos.",
+    "sw.title": "Software instalado", "sw.filter": "Buscar programas…", "sw.installed": "Instalado", "sw.scope": "Ámbito",
+  },
+};
+
+// Values that appear inside the data or inside messages
+const TERMS_ES = {
+  Laptop: "Portátil", Desktop: "Sobremesa", Machine: "Equipo", User: "Usuario",
+  Domain: "Dominio", Private: "Privado", Public: "Público", On: "Activado", Off: "Desactivado",
+  Encrypting: "Cifrando", Decrypting: "Descifrando", Suspended: "Suspendido", "On (locked)": "Activado (bloqueado)",
+  "Waiting for activation": "Pendiente de activar", Unknown: "Desconocido",
+  Healthy: "Correcto", Warning: "Aviso", Unhealthy: "Con fallos", "Predictive Failure": "Fallo previsto",
+  "Component Based Servicing": "mantenimiento de componentes", "Pending file rename operations": "archivos pendientes de renombrar",
+  Software: "Software", Hardware: "Hardware", Storage: "Almacenamiento", Windows: "Windows", Security: "Seguridad",
+  Network: "Red", Users: "Usuarios", added: "añadido", removed: "eliminado", changed: "modificado",
+  battery: "batería", hardware: "hardware", storage: "almacenamiento", operatingSystem: "sistema operativo",
+  security: "seguridad", network: "red", users: "usuarios", software: "software",
+};
+
+const onOff = s => s === "enabled" ? "activado" : "desactivado";
+const ES_MESSAGES = [
+  // Issues (Rules.ps1)
+  [/^Drive (\S+) is (\d+)% full \(([\d.]+) GB free\)$/, (m, d, p, f) => `La unidad ${d} está al ${p} % (${dec(f)} GB libres)`],
+  [/^Disk '(.+)' reports health '(.+)' \((.*)\): back up and replace it$/, (m, n, h, s) => `El disco «${n}» indica estado «${term(h)}» (${terms(s)}): haz una copia y sustitúyelo`],
+  [/^No active antivirus$/, () => "Sin antivirus activo"],
+  [/^Defender signatures are (\d+) days old$/, (m, n) => `Las firmas de Defender tienen ${n} días`],
+  [/^(.+) definitions are out of date$/, (m, n) => `Las firmas de ${n} no están actualizadas`],
+  [/^Firewall disabled on: (.+)$/, (m, p) => `Cortafuegos desactivado en: ${terms(p)}`],
+  [/^User Account Control \(UAC\) is disabled$/, () => "El Control de cuentas de usuario (UAC) está desactivado"],
+  [/^No Windows update installed for (\d+) days$/, (m, n) => `Ninguna actualización de Windows instalada en ${n} días`],
+  [/^(.+) \(build (\S+)\) is no longer supported(: Windows 10 stopped receiving security updates on 14 Oct 2025)?$/,
+    (m, n, b, w10) => `${n} (compilación ${b}) ya no tiene soporte${w10 ? ": Windows 10 dejó de recibir actualizaciones de seguridad el 14 de octubre de 2025" : ""}`],
+  [/^Restart pending \((.*)\)$/, (m, r) => `Reinicio pendiente (${terms(r)})`],
+  [/^Not restarted for (\d+) days$/, (m, n) => `Sin reiniciar desde hace ${n} días`],
+  [/^Laptop system drive is not encrypted \(BitLocker off\)$/, () => "La unidad del sistema del portátil no está cifrada (BitLocker desactivado)"],
+  [/^Battery holds (\d+)% of its design capacity$/, (m, n) => `La batería conserva el ${n} % de su capacidad original`],
+  [/^Only ([\d.]+) GB of RAM$/, (m, n) => `Solo ${dec(n)} GB de RAM`],
+  [/^Unexpected local administrators: (.+)$/, (m, l) => `Administradores locales no previstos: ${l}`],
+  [/^Unapproved software installed: (.+)$/, (m, p) => `Programa no autorizado instalado: ${p}`],
+  [/^(.+) is outdated \(minimum (.+)\)$/, (m, p, v) => `${p} está desactualizado (mínimo ${v})`],
+  [/^Inventory is (\d+) days old: the data may be out of date$/, (m, n) => `El inventario tiene ${n} días: los datos pueden no estar al día`],
+  [/^Could not collect: (.+)$/, (m, l) => `No se pudo leer: ${terms(l)}`],
+  // Changes (History.ps1)
+  [/^Installed (.+)$/, (m, p) => `Instalado ${p}`],
+  [/^Uninstalled (.+)$/, (m, p) => `Desinstalado ${p}`],
+  [/^RAM: ([\d.]+) GB -> ([\d.]+) GB$/, (m, a, b) => `RAM: ${dec(a)} GB -> ${dec(b)} GB`],
+  [/^Serial number: (.+) -> (.+) \(device or motherboard replaced\?\)$/, (m, a, b) => `Número de serie: ${a} -> ${b} (¿equipo o placa base sustituidos?)`],
+  [/^BIOS updated: (.+)$/, (m, a) => `BIOS actualizada: ${a}`],
+  [/^Battery health: (\d+)% -> (\d+)%$/, (m, a, b) => `Salud de la batería: ${a} % -> ${b} %`],
+  [/^New volume (\S+) \(([\d.]+) GB\)$/, (m, d, s) => `Nuevo volumen ${d} (${dec(s)} GB)`],
+  [/^Drive (\S+) (\d+)% -> (\d+)% used$/, (m, d, a, b) => `Unidad ${d} ${a} % -> ${b} % ocupado`],
+  [/^BitLocker on (\S+) (.+) -> (.+)$/, (m, d, a, b) => `BitLocker en ${d} ${term(a)} -> ${term(b)}`],
+  [/^Volume (\S+) no longer present$/, (m, d) => `El volumen ${d} ya no está`],
+  [/^New disk: (.+) \(([\d.]+) GB\)$/, (m, n, s) => `Disco nuevo: ${n} (${dec(s)} GB)`],
+  [/^Disk (.+) health: (.+) -> (.+)$/, (m, n, a, b) => `Estado del disco ${n}: ${term(a)} -> ${term(b)}`],
+  [/^Disk removed: (.+)$/, (m, n) => `Disco retirado: ${n}`],
+  [/^Edition: (.+)$/, (m, a) => `Edición: ${a}`],
+  [/^Feature update: (.+)$/, (m, a) => `Actualización de versión: ${a}`],
+  [/^Update installed: build (.+)$/, (m, a) => `Actualización instalada: compilación ${a}`],
+  [/^Antivirus installed: (.+)$/, (m, a) => `Antivirus instalado: ${a}`],
+  [/^Antivirus removed: (.+)$/, (m, a) => `Antivirus desinstalado: ${a}`],
+  [/^Firewall \((.+)\) (enabled|disabled)$/, (m, p, s) => `Cortafuegos (${term(p)}) ${onOff(s)}`],
+  [/^(UAC|Secure Boot) (enabled|disabled)$/, (m, w, s) => `${w === "Secure Boot" ? "Arranque seguro" : w} ${onOff(s)}`],
+  [/^New local administrator: (.+)$/, (m, a) => `Nuevo administrador local: ${a}`],
+  [/^No longer a local administrator: (.+)$/, (m, a) => `Ya no es administrador local: ${a}`],
+  [/^New network adapter: (.+)$/, (m, a) => `Nuevo adaptador de red: ${a}`],
+  [/^Network adapter removed: (.+)$/, (m, a) => `Adaptador de red retirado: ${a}`],
+  [/^IP address: (.+)$/, (m, a) => `Dirección IP: ${a}`],
+  [/^Main user: (.+)$/, (m, a) => `Usuario principal: ${a}`],
+  [/^(.+) (enabled|disabled)$/, (m, n, s) => `${n} ${onOff(s)}`],
+];
+
+function detectLanguage() {
+  const fromUrl = new URLSearchParams(location.search).get("lang");
+  if (fromUrl && I18N[fromUrl]) return fromUrl;
+  try { const saved = localStorage.getItem("pcscope-lang"); if (saved && I18N[saved]) return saved; } catch (err) { /* storage unavailable */ }
+  return (navigator.language || "en").toLowerCase().startsWith("es") ? "es" : "en";
+}
+let LANG = detectLanguage();
+
+function t(key, vars) {
+  const value = key in I18N[LANG] ? I18N[LANG][key] : (key in I18N.en ? I18N.en[key] : key);
+  return typeof value === "function" ? value(vars) : value;
+}
+const term = s => LANG === "es" && s != null && s in TERMS_ES ? TERMS_ES[s] : s;
+const terms = s => String(s).split(", ").map(term).join(", ");
+const dec = s => LANG === "es" ? String(s).replace(".", ",") : String(s);
+const num = v => (v === null || v === undefined || v === "") ? "—" : (typeof v === "number" ? v.toLocaleString(LANG === "es" ? "es-ES" : "en-US") : esc(v));
+function msg(text) {
+  if (LANG !== "es" || !text) return text;
+  for (const [pattern, translate] of ES_MESSAGES) {
+    const match = String(text).match(pattern);
+    if (match) return translate(...match);
+  }
+  return text;
+}
+
 /* ---------- helpers ---------- */
 const esc = v => String(v == null ? "" : v).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const dash = v => (v === null || v === undefined || v === "") ? "—" : esc(v);
 const list = v => Array.isArray(v) ? v : (v == null ? [] : [v]);
 const fmtDate = s => s ? esc(String(s).replace("T", " ").slice(0, 16)) : "—";
 const daysSince = s => s ? Math.floor((Date.now() - new Date(s).getTime()) / 86400000) : null;
-const yesNo = v => v === true ? pill("ok", "Yes") : v === false ? pill("warn", "No") : pill("info", "Unknown");
 const pill = (level, text) => `<span class="pill ${level}">${esc(text)}</span>`;
+const yesNo = v => v === true ? pill("ok", t("yes")) : v === false ? pill("warn", t("no")) : pill("info", t("unknown"));
 const LEVELS = { crit: 3, warn: 2, info: 1, ok: 0 };
-const LEVEL_TEXT = { crit: "Critical", warn: "Warning", info: "Info", ok: "OK" };
+const levelText = level => t("level." + level);
 
 function meter(percent) {
   if (percent == null) return "—";
@@ -161,7 +353,7 @@ const state = { view: "devices", filter: "", sort: { key: "status", dir: -1 }, s
 
 /* ---------- CSV export of the current view ---------- */
 let currentExport = null;   // { file, headers, rows } set by each view
-function exportButton() { return `<button class="btn" data-export title="Download the rows shown as CSV">Export CSV</button>`; }
+function exportButton() { return `<button class="btn" data-export title="${esc(t("exportTitle"))}">${esc(t("export"))}</button>`; }
 function downloadCsv(spec) {
   // Excel expects ";" where the decimal separator is a comma (es-ES, fr-FR...)
   const sep = (1.5).toLocaleString().includes(",") ? ";" : ",";
@@ -181,8 +373,8 @@ const CATEGORY_ICON = { Software: "▣", Hardware: "⚙", Storage: "◧", Window
 function changeRow(c, withDevice) {
   return `<tr class="${withDevice ? "clickable" : ""}" ${withDevice ? `data-device="${esc(c.device)}"` : ""}>
     <td>${fmtDate(c.date).slice(0, 10)}</td>${withDevice ? `<td><strong>${esc(c.device)}</strong></td>` : ""}
-    <td><span class="sub">${CATEGORY_ICON[c.category] || ""}</span> ${esc(c.category)}</td>
-    <td class="wrap">${esc(c.message)} ${c.notable ? pill("warn", "Review") : ""}</td></tr>`;
+    <td><span class="sub">${CATEGORY_ICON[c.category] || ""}</span> ${esc(term(c.category))}</td>
+    <td class="wrap">${esc(msg(c.message))} ${c.notable ? pill("warn", t("review")) : ""}</td></tr>`;
 }
 
 function maxDisk(d) {
@@ -198,16 +390,16 @@ function avName(d) {
 }
 
 const COLUMNS = [
-  { key: "status", label: "Status", get: d => LEVELS[d._status], html: d => pill(d._status, LEVEL_TEXT[d._status]) },
-  { key: "name", label: "Device", get: d => d.computerName.toLowerCase(), html: d => `<strong>${esc(d.computerName)}</strong>` },
-  { key: "model", label: "Model", get: d => ((d.hardware || {}).model || "").toLowerCase(), html: d => `${dash((d.hardware || {}).manufacturer)}<div class="sub">${dash((d.hardware || {}).model)}</div>` },
-  { key: "os", label: "Windows", get: d => ((d.operatingSystem || {}).build || ""), html: d => `${dash(((d.operatingSystem || {}).name || "").replace("Microsoft ", ""))}<div class="sub">${dash((d.operatingSystem || {}).displayVersion)} · build ${dash((d.operatingSystem || {}).build)}</div>` },
-  { key: "ram", label: "RAM", num: true, get: d => ((d.hardware || {}).memory || {}).totalGB || 0, html: d => dash(((d.hardware || {}).memory || {}).totalGB) + " GB" },
-  { key: "disk", label: "Fullest drive", get: d => maxDisk(d) || 0, html: d => meter(maxDisk(d)) },
-  { key: "update", label: "Last update", get: d => (((d.operatingSystem || {}).lastUpdate) || {}).date || "", html: d => { const u = (d.operatingSystem || {}).lastUpdate; return u ? `${fmtDate(u.date).slice(0, 10)} <span class="sub">${daysSince(u.date)} d ago</span>` : "—"; } },
-  { key: "av", label: "Antivirus", get: d => avName(d) || "", html: d => avName(d) ? esc(avName(d)) : pill("crit", "None") },
-  { key: "issues", label: "Issues", num: true, get: d => d._issues.length, html: d => d._issues.length ? esc(d._issues.length) : "0" },
-  { key: "collected", label: "Collected", get: d => d.collectedAt || "", html: d => fmtDate(d.collectedAt) },
+  { key: "status", label: "col.status", get: d => LEVELS[d._status], html: d => pill(d._status, levelText(d._status)) },
+  { key: "name", label: "col.device", get: d => d.computerName.toLowerCase(), html: d => `<strong>${esc(d.computerName)}</strong>` },
+  { key: "model", label: "col.model", get: d => ((d.hardware || {}).model || "").toLowerCase(), html: d => `${dash((d.hardware || {}).manufacturer)}<div class="sub">${dash((d.hardware || {}).model)}</div>` },
+  { key: "os", label: "col.windows", get: d => ((d.operatingSystem || {}).build || ""), html: d => `${dash(((d.operatingSystem || {}).name || "").replace("Microsoft ", ""))}<div class="sub">${dash((d.operatingSystem || {}).displayVersion)} · ${t("build")} ${dash((d.operatingSystem || {}).build)}</div>` },
+  { key: "ram", label: "col.ram", num: true, get: d => ((d.hardware || {}).memory || {}).totalGB || 0, html: d => num(((d.hardware || {}).memory || {}).totalGB) + " GB" },
+  { key: "disk", label: "col.disk", get: d => maxDisk(d) || 0, html: d => meter(maxDisk(d)) },
+  { key: "update", label: "col.update", get: d => (((d.operatingSystem || {}).lastUpdate) || {}).date || "", html: d => { const u = (d.operatingSystem || {}).lastUpdate; return u ? `${fmtDate(u.date).slice(0, 10)} <span class="sub">${esc(t("daysAgo", daysSince(u.date)))}</span>` : "—"; } },
+  { key: "av", label: "col.av", get: d => avName(d) || "", html: d => avName(d) ? esc(avName(d)) : pill("crit", t("none")) },
+  { key: "issues", label: "col.issues", num: true, get: d => d._issues.length, html: d => esc(d._issues.length) },
+  { key: "collected", label: "col.collected", get: d => d.collectedAt || "", html: d => fmtDate(d.collectedAt) },
 ];
 
 /* ---------- views ---------- */
@@ -216,11 +408,11 @@ function renderTiles() {
   const reboot = DEVICES.filter(d => d.operatingSystem && d.operatingSystem.pendingReboot && d.operatingSystem.pendingReboot.required).length;
   const laptops = DEVICES.filter(d => d.hardware && d.hardware.formFactor === "Laptop").length;
   return `<section class="tiles">
-    <div class="tile"><div class="label">Devices</div><div class="value">${DEVICES.length}</div><div class="sub">${laptops} laptops · ${DEVICES.length - laptops} desktops</div></div>
-    <div class="tile ok"><div class="label">Healthy</div><div class="value">${count("ok")}</div></div>
-    <div class="tile warn"><div class="label">Warnings</div><div class="value">${count("warn")}</div></div>
-    <div class="tile crit"><div class="label">Critical</div><div class="value">${count("crit")}</div></div>
-    <div class="tile"><div class="label">Restart pending</div><div class="value">${reboot}</div></div>
+    <div class="tile"><div class="label">${t("tile.devices")}</div><div class="value">${DEVICES.length}</div><div class="sub">${esc(t("tile.split", { l: laptops, d: DEVICES.length - laptops }))}</div></div>
+    <div class="tile ok"><div class="label">${t("tile.healthy")}</div><div class="value">${count("ok")}</div></div>
+    <div class="tile warn"><div class="label">${t("tile.warnings")}</div><div class="value">${count("warn")}</div></div>
+    <div class="tile crit"><div class="label">${t("tile.critical")}</div><div class="value">${count("crit")}</div></div>
+    <div class="tile"><div class="label">${t("tile.reboot")}</div><div class="value">${reboot}</div></div>
   </section>`;
 }
 
@@ -230,21 +422,22 @@ function renderDevices() {
   const rows = DEVICES
     .filter(d => !f || JSON.stringify([d.computerName, d.hardware, d.operatingSystem && d.operatingSystem.name, d.users]).toLowerCase().includes(f))
     .sort((a, b) => { const x = col.get(a), y = col.get(b); return (x > y ? 1 : x < y ? -1 : 0) * state.sort.dir; });
-  const head = COLUMNS.map(c => `<th class="sortable" data-sort="${c.key}">${esc(c.label)}${state.sort.key === c.key ? `<span class="arrow">${state.sort.dir > 0 ? "▲" : "▼"}</span>` : ""}</th>`).join("");
+  const head = COLUMNS.map(c => `<th class="sortable" data-sort="${c.key}">${esc(t(c.label))}${state.sort.key === c.key ? `<span class="arrow">${state.sort.dir > 0 ? "▲" : "▼"}</span>` : ""}</th>`).join("");
   const body = rows.map(d => `<tr class="clickable" data-device="${esc(d.computerName)}">${COLUMNS.map(c => `<td class="${c.num ? "num" : ""}">${c.html(d)}</td>`).join("")}</tr>`).join("");
   currentExport = {
     file: "pcscope-devices.csv",
-    headers: ["Device", "Status", "Issues", "Manufacturer", "Model", "Serial number", "Type", "CPU", "RAM GB", "Windows", "Version", "Build", "Last update", "Fullest drive %", "Antivirus", "User", "IPv4", "Collected"],
+    headers: ["col.device", "col.status", "col.issues", "col.manufacturer", "col.model", "col.serial", "hw.type", "col.cpu", "col.ram", "col.windows",
+      "col.version", "build", "col.update", "col.disk", "col.av", "col.user", "col.ipv4", "col.collected"].map(k => t(k)),
     rows: rows.map(d => {
       const hw = d.hardware || {}, os = d.operatingSystem || {};
-      return [d.computerName, LEVEL_TEXT[d._status], d._issues.length, hw.manufacturer, hw.model, hw.serialNumber, hw.formFactor,
+      return [d.computerName, levelText(d._status), d._issues.length, hw.manufacturer, hw.model, hw.serialNumber, term(hw.formFactor),
         (hw.cpu || {}).name, (hw.memory || {}).totalGB, os.name, os.displayVersion, os.build, (os.lastUpdate || {}).date,
         maxDisk(d), avName(d), (d.users || {}).lastLoggedOnUser, list(d.network).map(n => list(n.ipv4).join(" ")).join(" "), d.collectedAt];
     }),
   };
   return renderTiles() + `<section class="card">
-    <div class="toolbar"><h2>Devices</h2><input type="search" id="filter" placeholder="Filter by name, model, user…" value="${esc(state.filter)}" aria-label="Filter devices">${exportButton()}</div>
-    <div class="table-wrap"><table><thead><tr>${head}</tr></thead><tbody>${body || `<tr><td colspan="${COLUMNS.length}" class="empty">No devices match the filter.</td></tr>`}</tbody></table></div>
+    <div class="toolbar"><h2>${t("devices.title")}</h2><input type="search" id="filter" placeholder="${esc(t("devices.filter"))}" value="${esc(state.filter)}" aria-label="${esc(t("devices.filter"))}">${exportButton()}</div>
+    <div class="table-wrap"><table><thead><tr>${head}</tr></thead><tbody>${body || `<tr><td colspan="${COLUMNS.length}" class="empty">${t("devices.none")}</td></tr>`}</tbody></table></div>
   </section>`;
 }
 
@@ -255,17 +448,20 @@ function renderIssues() {
   all.forEach(i => byRule.set(i.rule, (byRule.get(i.rule) || 0) + 1));
   const f = state.issueFilter.toLowerCase();
   const rows = all
-    .filter(i => !f || [i.device, i.rule, i.text, LEVEL_TEXT[i.level]].join(" ").toLowerCase().includes(f))
+    .filter(i => !f || [i.device, i.rule, i.text, msg(i.text), levelText(i.level)].join(" ").toLowerCase().includes(f))
     .sort((a, b) => (LEVELS[b.level] - LEVELS[a.level]) || a.device.localeCompare(b.device));
   const top = [...byRule.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6)
-    .map(([rule, n]) => `<button class="btn chip" data-issue-filter="${esc(rule)}">${esc(rule)} <span class="sub">${n}</span></button>`).join("");
-  const body = rows.map(i => `<tr class="clickable" data-device="${esc(i.device)}"><td>${pill(i.level, LEVEL_TEXT[i.level])}</td><td><strong>${esc(i.device)}</strong></td><td class="wrap">${esc(i.text)}</td><td><code>${esc(i.rule)}</code></td></tr>`).join("");
-  currentExport = { file: "pcscope-issues.csv", headers: ["Severity", "Device", "Issue", "Rule"], rows: rows.map(i => [LEVEL_TEXT[i.level], i.device, i.text, i.rule]) };
+    .map(([rule, n]) => `<button class="btn chip${state.issueFilter === rule.toLowerCase() ? " active" : ""}" data-issue-filter="${esc(rule.toLowerCase())}">${esc(rule)} <span class="sub">${n}</span></button>`).join("");
+  const body = rows.map(i => `<tr class="clickable" data-device="${esc(i.device)}"><td>${pill(i.level, levelText(i.level))}</td><td><strong>${esc(i.device)}</strong></td><td class="wrap">${esc(msg(i.text))}</td><td><code>${esc(i.rule)}</code></td></tr>`).join("");
+  currentExport = {
+    file: "pcscope-issues.csv", headers: ["col.severity", "col.device", "col.issue", "col.rule"].map(k => t(k)),
+    rows: rows.map(i => [levelText(i.level), i.device, msg(i.text), i.rule]),
+  };
   return renderTiles() + `<section class="card">
-    <div class="toolbar"><h2>All issues <span class="sub">(${rows.length} of ${all.length})</span></h2><input type="search" id="issuefilter" placeholder="Filter by device, rule or text…" value="${esc(state.issueFilter)}" aria-label="Filter issues">${exportButton()}</div>
-    ${top ? `<div class="toolbar chips"><span class="sub">Most frequent:</span>${top}</div>` : ""}
-    <div class="table-wrap"><table><thead><tr><th>Severity</th><th>Device</th><th>Issue</th><th>Rule</th></tr></thead>
-    <tbody>${body || `<tr><td colspan="4" class="empty">${all.length ? "No issues match the filter." : "No issues found on any device."}</td></tr>`}</tbody></table></div>
+    <div class="toolbar"><h2>${t("issues.title")} <span class="sub">(${esc(t("ofTotal", { a: rows.length, b: all.length }))})</span></h2><input type="search" id="issuefilter" placeholder="${esc(t("issues.filter"))}" value="${esc(state.issueFilter)}" aria-label="${esc(t("issues.filter"))}">${exportButton()}</div>
+    ${top ? `<div class="toolbar chips"><span class="sub">${t("issues.top")}</span>${top}</div>` : ""}
+    <div class="table-wrap"><table><thead><tr><th>${t("col.severity")}</th><th>${t("col.device")}</th><th>${t("col.issue")}</th><th>${t("col.rule")}</th></tr></thead>
+    <tbody>${body || `<tr><td colspan="4" class="empty">${all.length ? t("issues.noMatch") : t("issues.none")}</td></tr>`}</tbody></table></div>
   </section>`;
 }
 
@@ -276,19 +472,22 @@ function renderChanges() {
   all.forEach(c => byCategory.set(c.category, (byCategory.get(c.category) || 0) + 1));
   const f = state.changeFilter.toLowerCase();
   const rows = all
-    .filter(c => (!state.notableOnly || c.notable) && (!f || [c.device, c.category, c.type, c.message].join(" ").toLowerCase().includes(f)))
+    .filter(c => (!state.notableOnly || c.notable) && (!f || [c.device, c.category, term(c.category), c.type, c.message, msg(c.message)].join(" ").toLowerCase().includes(f)))
     .sort((a, b) => String(b.date).localeCompare(String(a.date)) || a.device.localeCompare(b.device));
   const notable = all.filter(c => c.notable).length;
-  const chips = [`<button class="btn chip${state.notableOnly ? " active" : ""}" data-notable>Needs review <span class="sub">${notable}</span></button>`]
+  const chips = [`<button class="btn chip${state.notableOnly ? " active" : ""}" data-notable>${t("changes.review")} <span class="sub">${notable}</span></button>`]
     .concat([...byCategory.entries()].sort((a, b) => b[1] - a[1])
-      .map(([cat, n]) => `<button class="btn chip${state.changeFilter === cat.toLowerCase() ? " active" : ""}" data-change-filter="${esc(cat.toLowerCase())}">${esc(cat)} <span class="sub">${n}</span></button>`)).join("");
-  currentExport = { file: "pcscope-changes.csv", headers: ["Date", "Device", "Category", "Type", "Change", "Needs review"], rows: rows.map(c => [c.date, c.device, c.category, c.type, c.message, c.notable ? "yes" : ""]) };
+      .map(([cat, n]) => `<button class="btn chip${state.changeFilter === cat.toLowerCase() ? " active" : ""}" data-change-filter="${esc(cat.toLowerCase())}">${esc(term(cat))} <span class="sub">${n}</span></button>`)).join("");
+  currentExport = {
+    file: "pcscope-changes.csv", headers: ["col.date", "col.device", "col.category", "col.type", "col.change", "col.review"].map(k => t(k)),
+    rows: rows.map(c => [c.date, c.device, term(c.category), term(c.type), msg(c.message), c.notable ? t("yes") : ""]),
+  };
   const tracked = DEVICES.filter(d => d._changes.length).length;
   return `<section class="card">
-    <div class="toolbar"><h2>Changes between collections <span class="sub">(${rows.length} of ${all.length} · ${tracked} device${tracked === 1 ? "" : "s"} with history)</span></h2><input type="search" id="changefilter" placeholder="Filter by device, category or text…" value="${esc(state.changeFilter)}" aria-label="Filter changes">${exportButton()}</div>
+    <div class="toolbar"><h2>${t("changes.title")} <span class="sub">(${esc(t("ofTotal", { a: rows.length, b: all.length }))} · ${esc(t("changes.tracked", tracked))})</span></h2><input type="search" id="changefilter" placeholder="${esc(t("changes.filter"))}" value="${esc(state.changeFilter)}" aria-label="${esc(t("changes.filter"))}">${exportButton()}</div>
     ${all.length ? `<div class="toolbar chips">${chips}</div>` : ""}
-    <div class="table-wrap"><table><thead><tr><th>Detected</th><th>Device</th><th>Category</th><th>Change</th></tr></thead>
-    <tbody>${rows.map(c => changeRow(c, true)).join("") || `<tr><td colspan="4" class="empty">${all.length ? "No changes match the filter." : "No history yet: changes appear after a device has been collected at least twice."}</td></tr>`}</tbody></table></div>
+    <div class="table-wrap"><table><thead><tr><th>${t("col.detected")}</th><th>${t("col.device")}</th><th>${t("col.category")}</th><th>${t("col.change")}</th></tr></thead>
+    <tbody>${rows.map(c => changeRow(c, true)).join("") || `<tr><td colspan="4" class="empty">${all.length ? t("changes.noMatch") : t("changes.none")}</td></tr>`}</tbody></table></div>
   </section>`;
 }
 
@@ -313,97 +512,97 @@ function renderSoftware() {
     return `<tr><td class="wrap"><strong>${esc(s.name)}</strong></td><td class="wrap">${dash(s.publisher)}</td><td class="num">${devices.size}</td><td class="wrap">${versions}</td></tr>`;
   }).join("");
   currentExport = {
-    file: "pcscope-software.csv", headers: ["Program", "Publisher", "Version", "Devices"],
+    file: "pcscope-software.csv", headers: ["col.program", "col.publisher", "col.version", "col.devices"].map(k => t(k)),
     rows: [].concat(...items.map(s => [...s.versions.entries()].map(([v, ds]) => [s.name, s.publisher, v, ds.join(" ")]))),
   };
   return `<section class="card">
-    <div class="toolbar"><h2>Software across all devices <span class="sub">(${items.length} of ${map.size})</span></h2><input type="search" id="swfilter" placeholder="Search programs or publishers…" value="${esc(state.swFilter)}" aria-label="Search software">${exportButton()}</div>
-    <div class="table-wrap"><table><thead><tr><th>Program</th><th>Publisher</th><th>Devices</th><th>Versions — installed on</th></tr></thead>
-    <tbody>${rows || `<tr><td colspan="4" class="empty">No programs match the search.</td></tr>`}</tbody></table></div>
+    <div class="toolbar"><h2>${t("software.title")} <span class="sub">(${esc(t("ofTotal", { a: items.length, b: map.size }))})</span></h2><input type="search" id="swfilter" placeholder="${esc(t("software.filter"))}" value="${esc(state.swFilter)}" aria-label="${esc(t("software.filter"))}">${exportButton()}</div>
+    <div class="table-wrap"><table><thead><tr><th>${t("col.program")}</th><th>${t("col.publisher")}</th><th>${t("col.devices")}</th><th>${t("col.versions")}</th></tr></thead>
+    <tbody>${rows || `<tr><td colspan="4" class="empty">${t("software.none")}</td></tr>`}</tbody></table></div>
   </section>`;
 }
 
 function collectedText(d) {
   const c = d.collector || {};
-  const how = c.method === "remote" ? "remotely" : /\\SYSTEM$|^SYSTEM$/i.test(c.runAs || "") ? "by scheduled task" : c.method === "local" ? "locally" : "";
-  const parts = [`Collected ${how} ${fmtDate(d.collectedAt)}`.replace("  ", " "), `in ${esc(c.durationSeconds)} s`];
-  if (c.runAs) parts.push(`as ${esc(c.runAs)}`);
-  if (c.elevated === false) parts.push("without admin rights");
+  const how = c.method === "remote" ? "collected.remote" : /\\SYSTEM$|^SYSTEM$/i.test(c.runAs || "") ? "collected.task" : c.method === "local" ? "collected.local" : "collected.plain";
+  const parts = [`${esc(t(how))} ${fmtDate(d.collectedAt)}`, esc(t("collected.in", dec(c.durationSeconds)))];
+  if (c.runAs) parts.push(esc(t("collected.as", c.runAs)));
+  if (c.elevated === false) parts.push(esc(t("collected.noAdmin")));
   return parts.join(" · ");
 }
 
 function dl(pairs) {
-  return `<dl>${pairs.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${v}</dd>`).join("")}</dl>`;
+  return `<dl>${pairs.map(([k, v]) => `<dt>${esc(t(k))}</dt><dd>${v}</dd>`).join("")}</dl>`;
 }
 
 function renderDetail(name) {
   const d = DEVICES.find(x => x.computerName === name);
-  if (!d) return `<p class="empty">Device not found. <a href="#">Back to the list</a></p>`;
+  if (!d) return `<p class="empty">${t("detail.notFound")} <a href="#">${t("detail.backList")}</a></p>`;
   const hw = d.hardware || {}, cpu = hw.cpu || {}, mem = hw.memory || {};
   const os = d.operatingSystem || {}, sec = d.security || {}, users = d.users || {};
   const issues = d._issues.length
-    ? `<ul class="issues">${d._issues.map(i => `<li>${pill(i.level, LEVEL_TEXT[i.level])}<span>${esc(i.text)}</span></li>`).join("")}</ul>`
-    : `<p class="empty">No issues found.</p>`;
+    ? `<ul class="issues">${d._issues.map(i => `<li>${pill(i.level, levelText(i.level))}<span>${esc(msg(i.text))}</span></li>`).join("")}</ul>`
+    : `<p class="empty">${t("detail.noIssues")}</p>`;
 
   const volumes = list(d.storage && d.storage.volumes).map(v =>
-    `<tr><td><strong>${esc(v.drive)}</strong> <span class="sub">${esc(v.label || "")}</span></td><td class="num">${esc(v.sizeGB)} GB</td><td class="num">${esc(v.freeGB)} GB</td><td>${meter(v.usedPercent)}</td><td>${esc(v.bitLocker)}</td></tr>`).join("");
+    `<tr><td><strong>${esc(v.drive)}</strong> <span class="sub">${esc(v.label || "")}</span></td><td class="num">${num(v.sizeGB)} GB</td><td class="num">${num(v.freeGB)} GB</td><td>${meter(v.usedPercent)}</td><td>${esc(term(v.bitLocker))}</td></tr>`).join("");
   const physical = list(d.storage && d.storage.physical).map(p =>
-    `<tr><td class="wrap">${esc(p.name)}</td><td>${esc(p.mediaType)} · ${esc(p.busType)}</td><td class="num">${esc(p.sizeGB)} GB</td><td>${pill(p.healthStatus === "Healthy" ? "ok" : "crit", p.healthStatus || "Unknown")}</td></tr>`).join("");
+    `<tr><td class="wrap">${esc(p.name)}</td><td>${esc(p.mediaType)} · ${esc(p.busType)}</td><td class="num">${num(p.sizeGB)} GB</td><td>${pill(p.healthStatus === "Healthy" ? "ok" : "crit", term(p.healthStatus || "Unknown"))}</td></tr>`).join("");
 
-  const nets = list(d.network).map(n => `<tr><td class="wrap">${esc(n.description)}</td><td>${esc(list(n.ipv4).join(", "))}</td><td>${esc(n.macAddress)}</td><td>${esc(list(n.gateway).join(", "))}</td><td>${esc(list(n.dnsServers).join(", "))}</td><td>${n.dhcpEnabled ? "DHCP" : "Static"}</td></tr>`).join("");
+  const nets = list(d.network).map(n => `<tr><td class="wrap">${esc(n.description)}</td><td>${esc(list(n.ipv4).join(", "))}</td><td>${esc(n.macAddress)}</td><td>${esc(list(n.gateway).join(", "))}</td><td>${esc(list(n.dnsServers).join(", "))}</td><td>${n.dhcpEnabled ? t("dhcp") : t("static")}</td></tr>`).join("");
 
-  const avRows = list(sec.antivirusProducts).map(a => `${esc(a.name)} ${a.enabled ? pill("ok", "Active") : pill("info", "Inactive")} ${a.upToDate ? "" : pill("warn", "Outdated")}`).join("<br>");
-  const fw = list(sec.firewall).map(f => `${esc(f.profile)} ${f.enabled ? pill("ok", "On") : pill("crit", "Off")}`).join(" ");
+  const avRows = list(sec.antivirusProducts).map(a => `${esc(a.name)} ${a.enabled ? pill("ok", t("active")) : pill("info", t("inactive"))} ${a.upToDate ? "" : pill("warn", t("outdated"))}`).join("<br>");
+  const fw = list(sec.firewall).map(f => `${esc(term(f.profile))} ${f.enabled ? pill("ok", t("on")) : pill("crit", t("off"))}`).join(" ");
   const admins = list(sec.localAdministrators).map(a => esc(a.name)).join("<br>");
 
   const software = list(d.software);
-  const swRows = software.map(s => `<tr data-sw="${esc((s.name + " " + (s.publisher || "")).toLowerCase())}"><td class="wrap">${esc(s.name)}</td><td>${dash(s.version)}</td><td class="wrap">${dash(s.publisher)}</td><td>${dash(s.installDate)}</td><td>${esc(s.scope)}</td></tr>`).join("");
+  const swRows = software.map(s => `<tr data-sw="${esc((s.name + " " + (s.publisher || "")).toLowerCase())}"><td class="wrap">${esc(s.name)}</td><td>${dash(s.version)}</td><td class="wrap">${dash(s.publisher)}</td><td>${dash(s.installDate)}</td><td>${esc(term(s.scope))}</td></tr>`).join("");
 
   const errors = list(d.errors).length
-    ? `<section class="card span-all"><h3>Collection errors</h3><ul class="issues">${list(d.errors).map(e => `<li>${pill("info", e.section)}<span>${esc(e.message)}</span></li>`).join("")}</ul></section>` : "";
+    ? `<section class="card span-all"><h3>${t("detail.errors")}</h3><ul class="issues">${list(d.errors).map(e => `<li>${pill("info", term(e.section))}<span>${esc(e.message)}</span></li>`).join("")}</ul></section>` : "";
 
   return `<div class="detail-head">
-      <a class="btn" href="#">← All devices</a>
-      <h1>${esc(d.computerName)}</h1>${pill(d._status, LEVEL_TEXT[d._status])}
+      <a class="btn" href="#">${t("detail.back")}</a>
+      <h1>${esc(d.computerName)}</h1>${pill(d._status, levelText(d._status))}
       <span class="meta">${collectedText(d)}</span>
     </div>
     <div class="grid">
-      <section class="card span-all"><h3>Issues (${d._issues.length})</h3>${issues}</section>
-      <section class="card"><h3>Hardware</h3>${dl([
-        ["Manufacturer", dash(hw.manufacturer)], ["Model", dash(hw.model)], ["Serial number", dash(hw.serialNumber)],
-        ["Type", dash(hw.formFactor)], ["CPU", `${dash(cpu.name)}<div class="sub">${dash(cpu.cores)} cores · ${dash(cpu.logicalProcessors)} threads</div>`],
-        ["Memory", `${dash(mem.totalGB)} GB · ${meter(mem.usedPercent)} in use<div class="sub">${list(mem.modules).map(m => `${esc(m.slot)}: ${esc(m.capacityGB)} GB @ ${esc(m.speedMHz)} MHz`).join("<br>")}</div>`],
-        ["BIOS", `${dash(hw.biosVersion)} <span class="sub">${fmtDate(hw.biosDate).slice(0, 10)}</span>`],
-        ...(d.battery ? [["Battery", `${dash(d.battery.healthPercent)}% health · ${dash(d.battery.chargePercent)}% charged`]] : []),
+      <section class="card span-all"><h3>${t("detail.issues")} (${d._issues.length})</h3>${issues}</section>
+      <section class="card"><h3>${t("hw.title")}</h3>${dl([
+        ["hw.manufacturer", dash(hw.manufacturer)], ["hw.model", dash(hw.model)], ["hw.serial", dash(hw.serialNumber)],
+        ["hw.type", dash(term(hw.formFactor))], ["hw.cpu", `${dash(cpu.name)}<div class="sub">${esc(t("hw.cores", { c: cpu.cores, t: cpu.logicalProcessors }))}</div>`],
+        ["hw.memory", `${num(mem.totalGB)} GB · ${meter(mem.usedPercent)} ${t("hw.inUse")}<div class="sub">${list(mem.modules).map(m => `${esc(m.slot)}: ${num(m.capacityGB)} GB @ ${esc(m.speedMHz)} MHz`).join("<br>")}</div>`],
+        ["hw.bios", `${dash(hw.biosVersion)} <span class="sub">${fmtDate(hw.biosDate).slice(0, 10)}</span>`],
+        ...(d.battery ? [["hw.battery", esc(t("hw.batteryText", { h: d.battery.healthPercent == null ? "—" : d.battery.healthPercent, c: d.battery.chargePercent }))]] : []),
       ])}</section>
-      <section class="card"><h3>Operating system</h3>${dl([
-        ["Edition", dash(os.name)], ["Version", `${dash(os.displayVersion)} <span class="sub">build ${dash(os.build)}</span>`],
-        ["Installed", fmtDate(os.installDate)], ["Last boot", `${fmtDate(os.lastBoot)} <span class="sub">${dash(os.uptimeDays)} days ago</span>`],
-        ["Last update", os.lastUpdate ? `${fmtDate(os.lastUpdate.date)}<div class="sub">${esc(os.lastUpdate.title)}</div>` : "—"],
-        ["Restart pending", os.pendingReboot ? (os.pendingReboot.required ? `${pill("info", "Yes")} <span class="sub">${esc(list(os.pendingReboot.reasons).join(", "))}</span>` : pill("ok", "No")) : "—"],
-        ["Workgroup / domain", `${dash(os.domain)} ${os.partOfDomain ? pill("info", "Domain") : ""}`],
-        ["Current user", dash(users.currentUser)], ["Last logged on", dash(users.lastLoggedOnUser)],
+      <section class="card"><h3>${t("os.title")}</h3>${dl([
+        ["os.edition", dash(os.name)], ["os.version", `${dash(os.displayVersion)} <span class="sub">${t("build")} ${dash(os.build)}</span>`],
+        ["os.installed", fmtDate(os.installDate)], ["os.lastBoot", `${fmtDate(os.lastBoot)} <span class="sub">${esc(t("os.daysAgo", dec(os.uptimeDays)))}</span>`],
+        ["os.lastUpdate", os.lastUpdate ? `${fmtDate(os.lastUpdate.date)}<div class="sub">${esc(os.lastUpdate.title)}</div>` : "—"],
+        ["os.reboot", os.pendingReboot ? (os.pendingReboot.required ? `${pill("info", t("yes"))} <span class="sub">${esc(terms(list(os.pendingReboot.reasons).join(", ")))}</span>` : pill("ok", t("no"))) : "—"],
+        ["os.domain", `${dash(os.domain)} ${os.partOfDomain ? pill("info", t("domain")) : ""}`],
+        ["os.currentUser", dash(users.currentUser)], ["os.lastUser", dash(users.lastLoggedOnUser)],
       ])}</section>
-      <section class="card"><h3>Security</h3>${dl([
-        ["Antivirus", avRows || "—"],
-        ["Defender", sec.defender ? `Real-time ${sec.defender.realTimeProtection ? pill("ok", "On") : pill("info", "Off")}<div class="sub">Signatures ${fmtDate(sec.defender.signatureLastUpdated)}</div>` : "—"],
-        ["Firewall", fw || "—"], ["UAC", yesNo(sec.uacEnabled)], ["Secure Boot", yesNo(sec.secureBoot)],
-        ["Local administrators", admins || "—"],
+      <section class="card"><h3>${t("sec.title")}</h3>${dl([
+        ["sec.antivirus", avRows || "—"],
+        ["sec.defender", sec.defender ? `${t("sec.realtime")} ${sec.defender.realTimeProtection ? pill("ok", t("on")) : pill("info", t("off"))}<div class="sub">${t("sec.signatures")} ${fmtDate(sec.defender.signatureLastUpdated)}</div>` : "—"],
+        ["sec.firewall", fw || "—"], ["sec.uac", yesNo(sec.uacEnabled)], ["sec.secureBoot", yesNo(sec.secureBoot)],
+        ["sec.admins", admins || "—"],
       ])}</section>
-      <section class="card span-all"><h3>Storage</h3><div class="table-wrap"><table>
-        <thead><tr><th>Volume</th><th>Size</th><th>Free</th><th>Used</th><th>BitLocker</th></tr></thead><tbody>${volumes}</tbody></table></div>
-        ${physical ? `<div class="table-wrap"><table><thead><tr><th>Physical disk</th><th>Type</th><th>Size</th><th>Health</th></tr></thead><tbody>${physical}</tbody></table></div>` : ""}
+      <section class="card span-all"><h3>${t("st.title")}</h3><div class="table-wrap"><table>
+        <thead><tr><th>${t("st.volume")}</th><th>${t("st.size")}</th><th>${t("st.free")}</th><th>${t("st.used")}</th><th>${t("st.bitlocker")}</th></tr></thead><tbody>${volumes}</tbody></table></div>
+        ${physical ? `<div class="table-wrap"><table><thead><tr><th>${t("st.physical")}</th><th>${t("st.type")}</th><th>${t("st.size")}</th><th>${t("st.health")}</th></tr></thead><tbody>${physical}</tbody></table></div>` : ""}
       </section>
-      <section class="card span-all"><h3>Network</h3><div class="table-wrap"><table>
-        <thead><tr><th>Adapter</th><th>IPv4</th><th>MAC</th><th>Gateway</th><th>DNS</th><th>Mode</th></tr></thead><tbody>${nets || `<tr><td colspan="6" class="empty">No active adapters.</td></tr>`}</tbody></table></div>
+      <section class="card span-all"><h3>${t("net.title")}</h3><div class="table-wrap"><table>
+        <thead><tr><th>${t("net.adapter")}</th><th>IPv4</th><th>MAC</th><th>${t("net.gateway")}</th><th>DNS</th><th>${t("net.mode")}</th></tr></thead><tbody>${nets || `<tr><td colspan="6" class="empty">${t("net.none")}</td></tr>`}</tbody></table></div>
       </section>
       <section class="card span-all">
-        <div class="toolbar"><h2>Installed software <span class="sub">(${software.length})</span></h2><input type="search" id="devsw" placeholder="Search programs…" aria-label="Search installed software"></div>
-        <div class="table-wrap"><table><thead><tr><th>Program</th><th>Version</th><th>Publisher</th><th>Installed</th><th>Scope</th></tr></thead><tbody id="devswbody">${swRows}</tbody></table></div>
+        <div class="toolbar"><h2>${t("sw.title")} <span class="sub">(${software.length})</span></h2><input type="search" id="devsw" placeholder="${esc(t("sw.filter"))}" aria-label="${esc(t("sw.filter"))}"></div>
+        <div class="table-wrap"><table><thead><tr><th>${t("col.program")}</th><th>${t("col.version")}</th><th>${t("col.publisher")}</th><th>${t("sw.installed")}</th><th>${t("sw.scope")}</th></tr></thead><tbody id="devswbody">${swRows}</tbody></table></div>
       </section>
-      <section class="card span-all"><h3>Changes${d._changes.length ? ` (${d._changes.length})` : ""}</h3>${d._changes.length
-        ? `<div class="table-wrap"><table><thead><tr><th>Detected</th><th>Category</th><th>Change</th></tr></thead><tbody>${d._changes.slice(0, 30).map(c => changeRow(c, false)).join("")}</tbody></table></div>`
-        : `<p class="empty">No history yet: changes appear after this device has been collected at least twice.</p>`}</section>
+      <section class="card span-all"><h3>${t("detail.changes")}${d._changes.length ? ` (${d._changes.length})` : ""}</h3>${d._changes.length
+        ? `<div class="table-wrap"><table><thead><tr><th>${t("col.detected")}</th><th>${t("col.category")}</th><th>${t("col.change")}</th></tr></thead><tbody>${d._changes.slice(0, 30).map(c => changeRow(c, false)).join("")}</tbody></table></div>`
+        : `<p class="empty">${t("changes.noneDevice")}</p>`}</section>
       ${errors}
     </div>`;
 }
@@ -411,13 +610,23 @@ function renderDetail(name) {
 /* ---------- routing & events ---------- */
 const app = document.getElementById("app");
 
+function renderChrome() {
+  document.documentElement.lang = LANG;
+  document.querySelectorAll("nav button").forEach(b => { b.textContent = t("nav." + b.dataset.view); });
+  const langButton = document.getElementById("lang");
+  langButton.textContent = t("lang"); langButton.title = t("langTitle");
+  const themeButton = document.getElementById("theme");
+  themeButton.textContent = t("theme"); themeButton.title = t("themeTitle");
+  document.getElementById("meta").textContent = t("meta", { n: DEVICES.length, d: GENERATED_AT.replace("T", " ").slice(0, 16) });
+}
+
 function render() {
   const hash = decodeURIComponent(location.hash.slice(1));
   const deviceName = hash.startsWith("device=") ? hash.slice(7) : null;
   if (["devices", "issues", "changes", "software"].includes(hash)) state.view = hash;
   currentExport = null;
   document.querySelectorAll("nav button").forEach(b => b.setAttribute("aria-selected", String(!deviceName && b.dataset.view === state.view)));
-  if (!DEVICES.length) { app.innerHTML = `<p class="empty">No inventory data found. Run <code>PCScope.ps1</code> to collect some.</p>`; return; }
+  if (!DEVICES.length) { app.innerHTML = `<p class="empty">${t("noData")}</p>`; return; }
   app.innerHTML = deviceName ? renderDetail(deviceName)
     : state.view === "software" ? renderSoftware()
     : state.view === "issues" ? renderIssues()
@@ -467,16 +676,21 @@ document.querySelectorAll("nav button").forEach(b => b.addEventListener("click",
   location.hash = b.dataset.view;   // triggers render() through hashchange
   render();
 }));
+document.getElementById("lang").addEventListener("click", () => {
+  LANG = LANG === "es" ? "en" : "es";
+  try { localStorage.setItem("pcscope-lang", LANG); } catch (err) { /* storage unavailable */ }
+  renderChrome(); render();
+});
 document.getElementById("theme").addEventListener("click", () => {
   const root = document.documentElement;
   const dark = root.dataset.theme ? root.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
   root.dataset.theme = dark ? "light" : "dark";
   try { localStorage.setItem("pcscope-theme", root.dataset.theme); } catch (err) { /* storage unavailable */ }
 });
-try { const t = localStorage.getItem("pcscope-theme"); if (t) document.documentElement.dataset.theme = t; } catch (err) { /* storage unavailable */ }
+try { const saved = localStorage.getItem("pcscope-theme"); if (saved) document.documentElement.dataset.theme = saved; } catch (err) { /* storage unavailable */ }
 window.addEventListener("hashchange", render);
 
-document.getElementById("meta").textContent = `${DEVICES.length} device${DEVICES.length === 1 ? "" : "s"} · report generated ${GENERATED_AT.replace("T", " ").slice(0, 16)}`;
+renderChrome();
 render();
 </script>
 </body>

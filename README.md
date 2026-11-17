@@ -47,6 +47,7 @@ The dashboard then:
 - Keeps a **history** of each device and shows **what changed** between collections: programs installed or updated, Windows updates, disks filling up, new administrators, RAM upgrades… (see [History and changes](#history-and-changes)).
 - **Exports to CSV** from any view, or all at once from the console, ready to open in Excel.
 - Answers questions like *"which computers still have an old Chrome?"* or *"where is TeamViewer installed?"* with a software search across all devices.
+- Speaks **English and Spanish**: it follows the browser language, has an ES/EN button and can be forced with `?lang=es`.
 - Supports light and dark themes and works on mobile. Each tab has its own link (`#issues`, `#changes`, `#software`, `#device=NAME`).
 
 ![All issues](docs/issues.png)
@@ -269,7 +270,7 @@ Get-PCScopeInventory | ConvertTo-Json -Depth 8
 - [`src/Alert.ps1`](src/Alert.ps1) – selects the new alerts, remembers what was sent and delivers them by Telegram or SMTP.
 - [`src/Rules.ps1`](src/Rules.ps1) – evaluates [`rules.json`](rules.json) against an inventory and returns its issues, most severe first.
 - [`src/Report.ps1`](src/Report.ps1) – validates every JSON file, skips broken ones and embeds the data and issues in the template. Data is escaped so that text like `</script>` in a device name cannot break or inject code into the page.
-- [`src/report-template.html`](src/report-template.html) – the dashboard: vanilla HTML, CSS and JavaScript, no dependencies.
+- [`src/report-template.html`](src/report-template.html) – the dashboard: vanilla HTML, CSS and JavaScript, no dependencies, with its English and Spanish translations.
 - [`tools/New-DemoFleet.ps1`](tools/New-DemoFleet.ps1) – generates fictitious devices with the same schema, used by the live demo and the tests. The same seed always produces the same fleet.
 
 Some details that took care to get right:
@@ -280,6 +281,7 @@ Some details that took care to get right:
 - Defender may report "real-time protection off" simply because another antivirus is active, so the antivirus check uses Windows Security Center instead.
 - Scheduled-task boot and logon triggers silently ignore `-RandomDelay`; PCScope sets their `Delay` property instead (found by a test).
 - The `-f` format operator follows the system language (`7,8 GB` in Spanish), while string interpolation does not; change messages use interpolation so they read the same everywhere (covered by a test running under `es-ES`).
+- Issue and change messages are always produced in English by PowerShell and translated by the dashboard through a catalogue of patterns, so the data, the console CSV exports and the tests stay language-neutral.
 - .NET file APIs resolve relative paths against the process directory, not the PowerShell location, so every path is resolved with `GetUnresolvedProviderPathFromPSPath` first.
 
 ## Privacy
@@ -314,6 +316,7 @@ To try the dashboard with fictitious data locally:
 - [x] History: detect changes between runs (new software, RAM changes, disk growth)
 - [x] CSV export from the console and from every dashboard view
 - [x] Email/Telegram alerts for new critical issues and notable changes, without repeats
+- [x] Dashboard in English and Spanish
 
 ## License
 

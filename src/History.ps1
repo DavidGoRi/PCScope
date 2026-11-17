@@ -181,7 +181,7 @@ function Compare-PCScopeInventory {
             & $add 'Storage' 'changed' "Drive $($volume.drive) $($old.usedPercent)% -> $($volume.usedPercent)% used" ([double]$volume.usedPercent -ge 90)
         }
         if ($old.bitLocker -ne $volume.bitLocker -and $old.bitLocker -ne 'Unknown' -and $volume.bitLocker -ne 'Unknown') {
-            & $add 'Security' 'changed' ("BitLocker on {0}: {1} -> {2}" -f $volume.drive, $old.bitLocker, $volume.bitLocker) ($volume.bitLocker -eq 'Off')
+            & $add 'Security' 'changed' "BitLocker on $($volume.drive) $($old.bitLocker) -> $($volume.bitLocker)" ($volume.bitLocker -eq 'Off')
         }
     }
     foreach ($id in $before.Keys) {
