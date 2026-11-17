@@ -16,7 +16,7 @@ The demo shows a fleet of 25 fictitious devices, regenerated every week by GitHu
 
 *Leer en [español](README.es.md).*
 
-![PCScope dashboard](docs/dashboard.png)
+![PCScope dashboard tour: devices, issues, changes, device detail and software](docs/demo.gif)
 
 ## Why
 

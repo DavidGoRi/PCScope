@@ -16,7 +16,7 @@ La demo muestra una flota de 25 equipos ficticios, que GitHub Actions regenera c
 
 *Read in [English](README.md).*
 
-![Panel de PCScope](docs/es/dashboard.png)
+![Recorrido por el panel de PCScope: equipos, avisos, cambios, ficha de un equipo y software](docs/es/demo.gif)
 
 ## Por qué
 
