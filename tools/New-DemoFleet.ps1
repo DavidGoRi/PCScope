@@ -249,7 +249,7 @@ for ($i = 0; $i -lt $Count; $i++) {
             # Most devices report through the scheduled task, the rest were collected remotely by IT
             $viaTask = Test-Chance 0.7
             [ordered]@{
-                version = '0.3.0'; method = $(if ($viaTask) { 'local' } else { 'remote' })
+                version = '1.0.0'; method = $(if ($viaTask) { 'local' } else { 'remote' })
                 runAs = $(if ($viaTask) { 'NT AUTHORITY\SYSTEM' } else { 'CONTOSO\it.admin' })
                 elevated = $true; durationSeconds = (Get-RandomNumber 3 9 1)
             })

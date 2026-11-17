@@ -10,7 +10,7 @@
     Errors are recorded in the "errors" list of the result instead.
 #>
 
-$script:PCScopeVersion = '0.3.0'
+$script:PCScopeVersion = '1.0.0'
 $script:PCScopeSchemaVersion = 1
 
 #region Helpers

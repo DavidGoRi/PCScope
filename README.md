@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/DavidGoRi/PCScope/actions/workflows/ci.yml/badge.svg)](https://github.com/DavidGoRi/PCScope/actions/workflows/ci.yml)
 [![Live demo](https://img.shields.io/badge/demo-live-2563eb)](https://davidgori.github.io/PCScope/)
+[![Latest release](https://img.shields.io/github/v/release/DavidGoRi/PCScope)](https://github.com/DavidGoRi/PCScope/releases/latest)
 ![PowerShell 5.1+](https://img.shields.io/badge/PowerShell-5.1%2B-5391FE?logo=powershell&logoColor=white)
 ![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
 
@@ -92,6 +93,15 @@ Get-PCScopeIssue -Inventory $inventory -RuleSet (Get-PCScopeRuleSet .\rules.json
 ```
 
 ## Quick start
+
+**Download** [the latest release](https://github.com/DavidGoRi/PCScope/releases/latest) (`PCScope-<version>.zip`), extract it and run:
+
+```powershell
+Get-ChildItem -Recurse | Unblock-File   # files downloaded from the internet are blocked by Windows
+powershell -ExecutionPolicy Bypass -File .\PCScope.ps1 -Open
+```
+
+Or clone the repository:
 
 ```powershell
 git clone https://github.com/DavidGoRi/PCScope.git
@@ -299,6 +309,8 @@ Invoke-Pester -Path .\tests -Output Detailed
 ```
 
 GitHub Actions runs both on Windows PowerShell 5.1 for every push and pull request ([`ci.yml`](.github/workflows/ci.yml)), and a second workflow ([`demo.yml`](.github/workflows/demo.yml)) rebuilds and publishes the live demo to GitHub Pages.
+
+**Releasing:** update the version in `src/Collector.ps1` and add its section to [`CHANGELOG.md`](CHANGELOG.md), then push a tag (`git tag v1.1.0; git push origin v1.1.0`). The [`release.yml`](.github/workflows/release.yml) workflow builds the zip with [`tools/Build-Release.ps1`](tools/Build-Release.ps1), checks that the tag matches the version and publishes the release with the changelog notes and a SHA-256 checksum.
 
 To try the dashboard with fictitious data locally:
 

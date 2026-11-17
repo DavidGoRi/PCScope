@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/DavidGoRi/PCScope/actions/workflows/ci.yml/badge.svg)](https://github.com/DavidGoRi/PCScope/actions/workflows/ci.yml)
 [![Demo en vivo](https://img.shields.io/badge/demo-en%20vivo-2563eb)](https://davidgori.github.io/PCScope/?lang=es)
+[![Última versión](https://img.shields.io/github/v/release/DavidGoRi/PCScope?label=versi%C3%B3n)](https://github.com/DavidGoRi/PCScope/releases/latest)
 ![PowerShell 5.1+](https://img.shields.io/badge/PowerShell-5.1%2B-5391FE?logo=powershell&logoColor=white)
 ![Licencia: MIT](https://img.shields.io/badge/Licencia-MIT-green.svg)
 
@@ -92,6 +93,15 @@ Get-PCScopeIssue -Inventory $inventory -RuleSet (Get-PCScopeRuleSet .\rules.json
 ```
 
 ## Uso rápido
+
+**Descarga** [la última versión](https://github.com/DavidGoRi/PCScope/releases/latest) (`PCScope-<versión>.zip`), descomprímela y ejecuta:
+
+```powershell
+Get-ChildItem -Recurse | Unblock-File   # Windows bloquea los archivos descargados de internet
+powershell -ExecutionPolicy Bypass -File .\PCScope.ps1 -Open
+```
+
+O clona el repositorio:
 
 ```powershell
 git clone https://github.com/DavidGoRi/PCScope.git
@@ -303,6 +313,12 @@ Invoke-Pester -Path .\tests -Output Detailed
 ```
 
 GitHub Actions ejecuta ambos en Windows PowerShell 5.1 en cada push y pull request ([`ci.yml`](.github/workflows/ci.yml)). Un segundo flujo ([`demo.yml`](.github/workflows/demo.yml)) regenera la demo y la publica en GitHub Pages.
+
+**Publicar una versión:**
+1. Actualiza la versión en `src/Collector.ps1` y añade su apartado en [`CHANGELOG.md`](CHANGELOG.md).
+2. Sube una etiqueta (`git tag v1.1.0; git push origin v1.1.0`).
+
+El flujo [`release.yml`](.github/workflows/release.yml) crea el zip con [`tools/Build-Release.ps1`](tools/Build-Release.ps1) y comprueba que la etiqueta coincide con la versión. Después publica la versión con las notas del CHANGELOG y su suma SHA-256.
 
 Para probar el panel con datos ficticios:
 
