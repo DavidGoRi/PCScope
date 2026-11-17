@@ -1,12 +1,17 @@
 # PCScope
 
 [![CI](https://github.com/DavidGoRi/PCScope/actions/workflows/ci.yml/badge.svg)](https://github.com/DavidGoRi/PCScope/actions/workflows/ci.yml)
+[![Live demo](https://img.shields.io/badge/demo-live-2563eb)](https://davidgori.github.io/PCScope/)
 ![PowerShell 5.1+](https://img.shields.io/badge/PowerShell-5.1%2B-5391FE?logo=powershell&logoColor=white)
 ![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
 
 **Inventory and health check for the Windows computers of a small office, in one minute and without installing anything.**
 
 PCScope collects a read-only inventory of each PC (hardware, disks, Windows, security, network and installed software) and turns it into a single HTML dashboard that highlights what needs attention: a disk about to fill up, a laptop without encryption, a machine with no antivirus or months without updates.
+
+### ▶ [Open the live demo](https://davidgori.github.io/PCScope/)
+
+The demo shows a fleet of 25 fictitious devices, regenerated every week by GitHub Actions. Nothing to install: it is the same single HTML file PCScope produces.
 
 *Leer en [español](README.es.md).*
 
@@ -36,12 +41,52 @@ Many small businesses do not have an up-to-date list of their computers, let alo
 
 The dashboard then:
 
-- Flags issues by severity: **critical** (disk over 90 %, failing disk, no active antivirus, no updates in 60 days, UAC off), **warning** (disk over 80 %, firewall off, unencrypted laptop, worn battery, no updates in 30 days) and **info** (pending restart, long uptime, low RAM).
+- Evaluates **18 configurable health rules** and flags each device as *critical*, *warning* or *OK* (see [Health rules](#health-rules)).
 - Shows a sortable, filterable table of every device and a full detail page for each one.
+- Lists **every issue across the fleet** in one place, with the most frequent problems one click away.
 - Answers questions like *"which computers still have an old Chrome?"* or *"where is TeamViewer installed?"* with a software search across all devices.
-- Supports light and dark themes and works on mobile.
+- Supports light and dark themes and works on mobile. Each tab has its own link (`#issues`, `#software`, `#device=NAME`).
+
+![All issues](docs/issues.png)
 
 ![Device detail](docs/device-detail.png)
+
+## Health rules
+
+Rules live in [`rules.json`](rules.json), so each organisation can tune thresholds or turn checks off without touching the code. A rule with `"enabled": false`, or missing from the file, is skipped.
+
+| Rule | Default | Level |
+|---|---|---|
+| `diskSpace` | Volume over 80 % / 90 % full | warning / critical |
+| `diskHealth` | Physical disk not reporting *Healthy* (SMART) | critical |
+| `antivirus` | No active antivirus (Defender or third-party) | critical |
+| `antivirusDefinitions` | Definitions out of date or older than 7 days | warning |
+| `firewall` | Any firewall profile disabled | warning |
+| `uac` | User Account Control disabled | critical |
+| `windowsUpdates` | No update installed for 30 / 60 days | warning / critical |
+| `unsupportedWindows` | Build below 22000 (Windows 10, out of support since Oct 2025) | critical |
+| `laptopEncryption` | Laptop system drive without BitLocker | warning |
+| `batteryHealth` | Battery below 60 % of its design capacity | warning |
+| `localAdministrators` | Administrators other than the allowed accounts | warning |
+| `blockedSoftware` | Unapproved programs (e.g. torrent clients) | warning |
+| `outdatedSoftware` | Programs below a minimum version (Chrome, Firefox, 7-Zip, Notepad++) | warning |
+| `staleInventory` | Inventory older than 7 days | warning |
+| `pendingReboot`, `uptime`, `memory`, `collectionErrors` | Restart pending, more than 14 days without restarting, less than 8 GB of RAM, sections that could not be read | info |
+
+For example, to block remote-access tools and require at least 16 GB of RAM:
+
+```json
+"blockedSoftware": { "enabled": true, "level": "warning", "patterns": [ "uTorrent", "AnyDesk", "TeamViewer" ] },
+"memory":          { "enabled": true, "level": "info", "minGB": 16 }
+```
+
+Rules are evaluated in PowerShell ([`src/Rules.ps1`](src/Rules.ps1)), not in the browser, so the same results are available from the console:
+
+```powershell
+. .\src\Rules.ps1
+$inventory = Get-Content .\output\data\PC01.json -Raw | ConvertFrom-Json
+Get-PCScopeIssue -Inventory $inventory -RuleSet (Get-PCScopeRuleSet .\rules.json)
+```
 
 ## Quick start
 
@@ -51,7 +96,16 @@ cd PCScope
 powershell -ExecutionPolicy Bypass -File .\PCScope.ps1 -Open
 ```
 
-The inventory is saved to `output\data\<COMPUTERNAME>.json` and the dashboard to `output\report.html`.
+The inventory is saved to `output\data\<COMPUTERNAME>.json` and the dashboard to `output\report.html`. The console also prints a summary:
+
+```
+Collecting inventory of OFFICE-PC01...
+Saved C:\PCScope\output\data\OFFICE-PC01.json (94 programs, 4 s)
+Status: WARNING (2 issue(s))
+  [warning] Unexpected local administrators: OFFICE-PC01\jsmith
+  [info] Restart pending (Windows Update)
+Dashboard: C:\PCScope\output\report.html
+```
 
 ### A whole office
 
@@ -72,6 +126,7 @@ Run PCScope on each computer pointing to the same shared folder (for example fro
 | `-OutputPath` | Results folder. Default: `.\output` |
 | `-NoReport` | Only collect and save the JSON |
 | `-ReportOnly` | Do not collect; rebuild the dashboard from the existing JSON files |
+| `-RulesPath` | Health rules file. Default: `rules.json` |
 | `-Open` | Open the dashboard when finished |
 
 The functions can also be used on their own:
@@ -84,16 +139,18 @@ Get-PCScopeInventory | ConvertTo-Json -Depth 8
 ## How it works
 
 ```
- PC 1 ─┐
- PC 2 ─┼─► Collector.ps1 ─► <COMPUTERNAME>.json ─► Report.ps1 ─► report.html
- PC n ─┘    (read-only)       (one per device)      (embeds the     (self-contained,
-                                                    JSON in the      no server)
-                                                    template)
+ PC 1 ─┐                                            rules.json
+ PC 2 ─┼─► Collector.ps1 ─► <COMPUTERNAME>.json ─► Rules.ps1 + Report.ps1 ─► report.html
+ PC n ─┘    (read-only)       (one per device)      (issues per device,      (self-contained,
+                                                     data embedded in         no server)
+                                                     the template)
 ```
 
 - [`src/Collector.ps1`](src/Collector.ps1) – one function per section (`Get-PCScopeHardware`, `Get-PCScopeSecurity`…), built on CIM/WMI, the registry and built-in cmdlets. Each section runs inside its own error handler.
-- [`src/Report.ps1`](src/Report.ps1) – validates every JSON file, skips broken ones and embeds the data in the template. Data is escaped so that text like `</script>` in a device name cannot break or inject code into the page.
+- [`src/Rules.ps1`](src/Rules.ps1) – evaluates [`rules.json`](rules.json) against an inventory and returns its issues, most severe first.
+- [`src/Report.ps1`](src/Report.ps1) – validates every JSON file, skips broken ones and embeds the data and issues in the template. Data is escaped so that text like `</script>` in a device name cannot break or inject code into the page.
 - [`src/report-template.html`](src/report-template.html) – the dashboard: vanilla HTML, CSS and JavaScript, no dependencies.
+- [`tools/New-DemoFleet.ps1`](tools/New-DemoFleet.ps1) – generates fictitious devices with the same schema, used by the live demo and the tests. The same seed always produces the same fleet.
 
 Some details that took care to get right:
 
@@ -104,7 +161,7 @@ Some details that took care to get right:
 
 ## Privacy
 
-The JSON files and the dashboard contain serial numbers, IP and MAC addresses, user names and the list of installed software. Store them somewhere only IT can read. The `output/` folder is excluded in `.gitignore` so real data is never committed; the screenshots above use fictitious devices from [`tests/fixtures`](tests/fixtures).
+The JSON files and the dashboard contain serial numbers, IP and MAC addresses, user names and the list of installed software. Store them somewhere only IT can read. The `output/` folder is excluded in `.gitignore` so real data is never committed; the screenshots and the live demo use fictitious devices generated by [`tools/New-DemoFleet.ps1`](tools/New-DemoFleet.ps1).
 
 ## Development
 
@@ -116,13 +173,20 @@ Invoke-ScriptAnalyzer -Path . -Recurse -Settings .\PSScriptAnalyzerSettings.psd1
 Invoke-Pester -Path .\tests -Output Detailed
 ```
 
-GitHub Actions runs both on Windows PowerShell 5.1 for every push and pull request.
+GitHub Actions runs both on Windows PowerShell 5.1 for every push and pull request ([`ci.yml`](.github/workflows/ci.yml)), and a second workflow ([`demo.yml`](.github/workflows/demo.yml)) rebuilds and publishes the live demo to GitHub Pages.
+
+To try the dashboard with fictitious data locally:
+
+```powershell
+.\tools\New-DemoFleet.ps1 -OutputPath .\output\demo\data -Count 25
+.\PCScope.ps1 -OutputPath .\output\demo -ReportOnly -Open
+```
 
 ## Roadmap
 
 - [x] Read-only collector, JSON output and self-contained dashboard
-- [ ] Health rules in a configurable `rules.json` (thresholds, enable/disable checks)
-- [ ] Live demo on GitHub Pages with a generated fleet of fictitious devices
+- [x] Health rules in a configurable `rules.json` (thresholds, enable/disable checks)
+- [x] Live demo on GitHub Pages with a generated fleet of fictitious devices
 - [ ] Remote collection with `Invoke-Command` (WinRM) and a scheduled-task installer
 - [ ] History: detect changes between runs (new software, RAM changes, disk growth)
 - [ ] CSV export and optional email/Telegram alerts for critical issues

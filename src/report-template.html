@@ -96,6 +96,9 @@ dt { color: var(--muted); } dd { margin: 0; overflow-wrap: anywhere; }
 .span-all { grid-column: 1 / -1; }
 .sub { color: var(--muted); font-size: 12px; }
 .hidden { display: none !important; }
+.chips { gap: 6px; padding-top: 8px; padding-bottom: 8px; }
+.chip { padding: 3px 10px; font-size: 12px; }
+code { font: 12px Consolas, "Cascadia Mono", monospace; background: var(--surface-2); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; }
 @media (max-width: 640px) {
   header, main { padding-left: 16px; padding-right: 16px; }
   nav { margin-left: 0; }
@@ -113,6 +116,7 @@ dt { color: var(--muted); } dd { margin: 0; overflow-wrap: anywhere; }
   <span class="meta" id="meta"></span>
   <nav role="tablist">
     <button role="tab" data-view="devices" aria-selected="true">Devices</button>
+    <button role="tab" data-view="issues" aria-selected="false">Issues</button>
     <button role="tab" data-view="software" aria-selected="false">Software</button>
   </nav>
   <button class="btn" id="theme" title="Toggle theme">Theme</button>
@@ -122,6 +126,7 @@ dt { color: var(--muted); } dd { margin: 0; overflow-wrap: anywhere; }
 <script>
 "use strict";
 const DEVICES = /*PCSCOPE_DATA*/[];
+const ISSUES = /*PCSCOPE_ISSUES*/{};
 const GENERATED_AT = "{{GENERATED_AT}}";
 
 /* ---------- helpers ---------- */
@@ -141,51 +146,15 @@ function meter(percent) {
   return `<span class="meter ${level}"><span class="track"><span class="fill" style="width:${Math.min(100, percent)}%"></span></span>${esc(percent)}%</span>`;
 }
 
-/* ---------- health checks (built-in for now) ---------- */
-function checks(d) {
-  const out = [];
-  const add = (level, text) => out.push({ level, text });
-  for (const v of list(d.storage && d.storage.volumes)) {
-    if (v.usedPercent >= 90) add("crit", `Drive ${v.drive} is ${v.usedPercent}% full (${v.freeGB} GB free)`);
-    else if (v.usedPercent >= 80) add("warn", `Drive ${v.drive} is ${v.usedPercent}% full`);
-  }
-  for (const p of list(d.storage && d.storage.physical)) {
-    if (p.healthStatus && p.healthStatus !== "Healthy") add("crit", `Disk "${p.name}" reports health: ${p.healthStatus}`);
-  }
-  const sec = d.security || {};
-  const avs = list(sec.antivirusProducts);
-  const anyAv = avs.some(a => a.enabled) || (sec.defender && sec.defender.realTimeProtection);
-  if (sec.defender || avs.length) {
-    if (!anyAv) add("crit", "No active antivirus");
-    else if (avs.some(a => a.enabled && !a.upToDate)) add("warn", "Antivirus definitions are out of date");
-  }
-  if (list(sec.firewall).some(f => f.enabled === false)) add("warn", "Firewall disabled on: " + list(sec.firewall).filter(f => !f.enabled).map(f => f.profile).join(", "));
-  if (sec.uacEnabled === false) add("crit", "User Account Control (UAC) is disabled");
-  const os = d.operatingSystem || {};
-  const lastUpd = os.lastUpdate ? daysSince(os.lastUpdate.date) : null;
-  if (lastUpd !== null && lastUpd > 60) add("crit", `No Windows update installed for ${lastUpd} days`);
-  else if (lastUpd !== null && lastUpd > 30) add("warn", `No Windows update installed for ${lastUpd} days`);
-  if (os.pendingReboot && os.pendingReboot.required) add("info", "Restart pending to finish installing updates");
-  if (os.uptimeDays > 14) add("info", `Not restarted for ${Math.floor(os.uptimeDays)} days`);
-  const hw = d.hardware || {};
-  if (hw.formFactor === "Laptop") {
-    const bitlockerSystem = list(d.storage && d.storage.volumes).find(v => v.drive === "C:");
-    if (bitlockerSystem && bitlockerSystem.bitLocker === "Off") add("warn", "Laptop system drive is not encrypted (BitLocker off)");
-  }
-  if (d.battery && d.battery.healthPercent != null && d.battery.healthPercent < 60) add("warn", `Battery health at ${d.battery.healthPercent}% of its design capacity`);
-  if (hw.memory && hw.memory.totalGB < 8) add("info", `Only ${hw.memory.totalGB} GB of RAM`);
-  if (list(d.errors).length) add("info", `${list(d.errors).length} section(s) could not be collected`);
-  return out.sort((a, b) => LEVELS[b.level] - LEVELS[a.level]);
-}
-function status(d) {
-  const top = d._issues[0];
-  return top && top.level !== "info" ? top.level : "ok";
-}
-
-DEVICES.forEach(d => { d._issues = checks(d); d._status = status(d); });
+/* ---------- health issues (evaluated by Rules.ps1 from rules.json) ---------- */
+const LEVEL_CLASS = { critical: "crit", warning: "warn", info: "info" };
+DEVICES.forEach(d => {
+  d._issues = list(ISSUES[d.computerName]).map(i => ({ level: LEVEL_CLASS[i.level] || "info", text: i.message, rule: i.rule }));
+  d._status = d._issues.some(i => i.level === "crit") ? "crit" : d._issues.some(i => i.level === "warn") ? "warn" : "ok";
+});
 
 /* ---------- state ---------- */
-const state = { view: "devices", filter: "", sort: { key: "status", dir: -1 }, swFilter: "" };
+const state = { view: "devices", filter: "", sort: { key: "status", dir: -1 }, swFilter: "", issueFilter: "" };
 
 function maxDisk(d) {
   const v = list(d.storage && d.storage.volumes).map(x => x.usedPercent).filter(x => x != null);
@@ -237,6 +206,26 @@ function renderDevices() {
   return renderTiles() + `<section class="card">
     <div class="toolbar"><h2>Devices</h2><input type="search" id="filter" placeholder="Filter by name, model, user…" value="${esc(state.filter)}" aria-label="Filter devices"></div>
     <div class="table-wrap"><table><thead><tr>${head}</tr></thead><tbody>${body || `<tr><td colspan="${COLUMNS.length}" class="empty">No devices match the filter.</td></tr>`}</tbody></table></div>
+  </section>`;
+}
+
+function renderIssues() {
+  const all = [];
+  DEVICES.forEach(d => d._issues.forEach(i => all.push(Object.assign({ device: d.computerName }, i))));
+  const byRule = new Map();
+  all.forEach(i => byRule.set(i.rule, (byRule.get(i.rule) || 0) + 1));
+  const f = state.issueFilter.toLowerCase();
+  const rows = all
+    .filter(i => !f || [i.device, i.rule, i.text, LEVEL_TEXT[i.level]].join(" ").toLowerCase().includes(f))
+    .sort((a, b) => (LEVELS[b.level] - LEVELS[a.level]) || a.device.localeCompare(b.device));
+  const top = [...byRule.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6)
+    .map(([rule, n]) => `<button class="btn chip" data-issue-filter="${esc(rule)}">${esc(rule)} <span class="sub">${n}</span></button>`).join("");
+  const body = rows.map(i => `<tr class="clickable" data-device="${esc(i.device)}"><td>${pill(i.level, LEVEL_TEXT[i.level])}</td><td><strong>${esc(i.device)}</strong></td><td class="wrap">${esc(i.text)}</td><td><code>${esc(i.rule)}</code></td></tr>`).join("");
+  return renderTiles() + `<section class="card">
+    <div class="toolbar"><h2>All issues <span class="sub">(${rows.length} of ${all.length})</span></h2><input type="search" id="issuefilter" placeholder="Filter by device, rule or text…" value="${esc(state.issueFilter)}" aria-label="Filter issues"></div>
+    ${top ? `<div class="toolbar chips"><span class="sub">Most frequent:</span>${top}</div>` : ""}
+    <div class="table-wrap"><table><thead><tr><th>Severity</th><th>Device</th><th>Issue</th><th>Rule</th></tr></thead>
+    <tbody>${body || `<tr><td colspan="4" class="empty">${all.length ? "No issues match the filter." : "No issues found on any device."}</td></tr>`}</tbody></table></div>
   </section>`;
 }
 
@@ -346,9 +335,13 @@ const app = document.getElementById("app");
 function render() {
   const hash = decodeURIComponent(location.hash.slice(1));
   const deviceName = hash.startsWith("device=") ? hash.slice(7) : null;
+  if (["devices", "issues", "software"].includes(hash)) state.view = hash;
   document.querySelectorAll("nav button").forEach(b => b.setAttribute("aria-selected", String(!deviceName && b.dataset.view === state.view)));
   if (!DEVICES.length) { app.innerHTML = `<p class="empty">No inventory data found. Run <code>PCScope.ps1</code> to collect some.</p>`; return; }
-  app.innerHTML = deviceName ? renderDetail(deviceName) : state.view === "software" ? renderSoftware() : renderDevices();
+  app.innerHTML = deviceName ? renderDetail(deviceName)
+    : state.view === "software" ? renderSoftware()
+    : state.view === "issues" ? renderIssues()
+    : renderDevices();
   if (deviceName) window.scrollTo(0, 0);
 }
 
@@ -359,12 +352,18 @@ function keepFocus(id, fn) {
 app.addEventListener("input", e => {
   if (e.target.id === "filter") keepFocus("filter", v => state.filter = v)(e);
   else if (e.target.id === "swfilter") keepFocus("swfilter", v => state.swFilter = v)(e);
+  else if (e.target.id === "issuefilter") keepFocus("issuefilter", v => state.issueFilter = v)(e);
   else if (e.target.id === "devsw") {
     const q = e.target.value.toLowerCase();
     document.querySelectorAll("#devswbody tr").forEach(tr => tr.classList.toggle("hidden", !!q && !tr.dataset.sw.includes(q)));
   }
 });
 app.addEventListener("click", e => {
+  const chip = e.target.closest("[data-issue-filter]");
+  if (chip) {
+    state.issueFilter = state.issueFilter === chip.dataset.issueFilter ? "" : chip.dataset.issueFilter;
+    render(); return;
+  }
   const th = e.target.closest("th[data-sort]");
   if (th) {
     const key = th.dataset.sort;
@@ -376,7 +375,7 @@ app.addEventListener("click", e => {
 });
 document.querySelectorAll("nav button").forEach(b => b.addEventListener("click", () => {
   state.view = b.dataset.view;
-  if (location.hash) history.pushState(null, "", location.pathname);
+  location.hash = b.dataset.view;   // triggers render() through hashchange
   render();
 }));
 document.getElementById("theme").addEventListener("click", () => {

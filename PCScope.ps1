@@ -21,6 +21,9 @@
 .PARAMETER ReportOnly
     Do not collect anything; just rebuild the dashboard from existing JSON files.
 
+.PARAMETER RulesPath
+    Health rules file. Default: rules.json next to this script.
+
 .PARAMETER Open
     Open the dashboard in the default browser when finished.
 
@@ -39,6 +42,8 @@ param(
 
     [Parameter(ParameterSetName = 'ReportOnly')]
     [switch] $ReportOnly,
+
+    [string] $RulesPath = (Join-Path $PSScriptRoot 'rules.json'),
 
     [switch] $Open
 )
@@ -67,10 +72,18 @@ if (-not $ReportOnly) {
     if (-not $inventory.collector.elevated -and $inventory.battery -and $null -eq $inventory.battery.healthPercent) {
         Write-Host 'Tip: run as administrator to read the battery capacity on this laptop.'
     }
+
+    # Quick summary in the console, using the same rules as the dashboard
+    $issues = @(Get-PCScopeIssue -Inventory ($json | ConvertFrom-Json) -RuleSet (Get-PCScopeRuleSet -Path $RulesPath))
+    $colors = @{ critical = 'Red'; warning = 'Yellow'; info = 'Gray' }
+    Write-Host ("Status: {0} ({1} issue(s))" -f (Get-PCScopeStatus -Issue $issues).ToUpper(), $issues.Count)
+    foreach ($issue in $issues) {
+        Write-Host ("  [{0}] {1}" -f $issue.level, $issue.message) -ForegroundColor $colors[$issue.level]
+    }
 }
 
 if (-not $NoReport) {
-    $report = New-PCScopeReport -DataPath $dataPath -OutputFile (Join-Path $OutputPath 'report.html')
+    $report = New-PCScopeReport -DataPath $dataPath -OutputFile (Join-Path $OutputPath 'report.html') -RulesPath $RulesPath
     Write-Host "Dashboard: $($report.FullName)"
     if ($Open) { Start-Process -FilePath $report.FullName }
 }

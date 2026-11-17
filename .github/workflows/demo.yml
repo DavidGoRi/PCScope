@@ -1,0 +1,52 @@
+name: Demo
+
+# Publishes the live demo (a fleet of fictitious devices) to GitHub Pages.
+# The weekly run regenerates it so its dates stay current.
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build demo dashboard
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Generate fictitious fleet and dashboard
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          .\tools\New-DemoFleet.ps1 -OutputPath _demo\data -Count 25
+          . .\src\Report.ps1
+          $report = New-PCScopeReport -DataPath _demo\data -OutputFile _site\index.html -Title 'PCScope demo'
+          Write-Host "Built $($report.FullName) ($([Math]::Round($report.Length / 1KB)) KB)"
+
+      - uses: actions/configure-pages@v6
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

@@ -1,0 +1,40 @@
+{
+  "description": "PCScope health rules. Set \"enabled\": false to turn a rule off. Levels: critical, warning, info.",
+  "rules": {
+    "diskSpace":            { "enabled": true, "warningPercent": 80, "criticalPercent": 90 },
+    "diskHealth":           { "enabled": true, "level": "critical" },
+    "antivirus":            { "enabled": true, "level": "critical" },
+    "antivirusDefinitions": { "enabled": true, "level": "warning", "maxAgeDays": 7 },
+    "firewall":             { "enabled": true, "level": "warning" },
+    "uac":                  { "enabled": true, "level": "critical" },
+    "windowsUpdates":       { "enabled": true, "warningDays": 30, "criticalDays": 60 },
+    "unsupportedWindows":   { "enabled": true, "level": "critical", "minBuild": 22000 },
+    "pendingReboot":        { "enabled": true, "level": "info" },
+    "uptime":               { "enabled": true, "level": "info", "maxDays": 14 },
+    "laptopEncryption":     { "enabled": true, "level": "warning" },
+    "batteryHealth":        { "enabled": true, "level": "warning", "minPercent": 60 },
+    "memory":               { "enabled": true, "level": "info", "minGB": 8 },
+    "localAdministrators":  {
+      "enabled": true,
+      "level": "warning",
+      "allowed": [ "Administrator", "Administrador", "Administrateur", "Domain Admins", "Admins. del dominio" ]
+    },
+    "blockedSoftware":      {
+      "enabled": true,
+      "level": "warning",
+      "patterns": [ "uTorrent", "BitTorrent", "Ammyy Admin" ]
+    },
+    "outdatedSoftware":     {
+      "enabled": true,
+      "level": "warning",
+      "minimumVersions": {
+        "Google Chrome": "150.0",
+        "Mozilla Firefox": "140.0",
+        "7-Zip": "24.07",
+        "Notepad++": "8.6"
+      }
+    },
+    "staleInventory":       { "enabled": true, "level": "warning", "maxDays": 7 },
+    "collectionErrors":     { "enabled": true, "level": "info" }
+  }
+}

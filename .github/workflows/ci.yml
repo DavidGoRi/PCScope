@@ -9,7 +9,7 @@ jobs:
     name: Lint and test (Windows PowerShell 5.1)
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install Pester and PSScriptAnalyzer
         shell: powershell

@@ -35,7 +35,7 @@
   "network": [ { "description": "Ethernet", "macAddress": "00:11:22:33:44:01", "ipv4": [ "10.0.0.21" ], "ipv6": [], "gateway": [ "10.0.0.1" ], "dnsServers": [ "10.0.0.2" ], "dhcpEnabled": true } ],
   "users": { "currentUser": "CONTOSO\\ana.garcia", "lastLoggedOnUser": "CONTOSO\\ana.garcia" },
   "software": [
-    { "name": "Google Chrome", "version": "131.0.6778.86", "publisher": "Google LLC", "installDate": "2026-10-01", "scope": "Machine" },
+    { "name": "Google Chrome", "version": "152.0.7444.60", "publisher": "Google LLC", "installDate": "2026-10-01", "scope": "Machine" },
     { "name": "Microsoft 365 Apps for business", "version": "16.0.18129.20158", "publisher": "Microsoft Corporation", "installDate": "2025-01-15", "scope": "Machine" },
     { "name": "7-Zip 24.08 (x64)", "version": "24.08", "publisher": "Igor Pavlov", "installDate": null, "scope": "Machine" }
   ],

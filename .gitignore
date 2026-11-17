@@ -3,6 +3,10 @@
 output/
 *.report.html
 
+# Demo build output (generated in CI)
+_demo/
+_site/
+
 # Editors and OS
 .vscode/
 *.swp
