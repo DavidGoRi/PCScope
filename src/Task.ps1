@@ -86,7 +86,7 @@ function Install-PCScopeTask {
     }
 
     # Only what is needed to run: no tests, docs or demo tools
-    $files = @('PCScope.ps1', 'rules.json', 'src\Collector.ps1', 'src\History.ps1', 'src\Remote.ps1', 'src\Rules.ps1', 'src\Report.ps1', 'src\report-template.html')
+    $files = @('PCScope.ps1', 'rules.json', 'src\Alert.ps1', 'src\Collector.ps1', 'src\History.ps1', 'src\Remote.ps1', 'src\Rules.ps1', 'src\Report.ps1', 'src\report-template.html')
     if ($PSCmdlet.ShouldProcess($InstallPath, 'Copy PCScope files')) {
         New-Item -ItemType Directory -Path (Join-Path $InstallPath 'src') -Force | Out-Null
         foreach ($file in $files) {

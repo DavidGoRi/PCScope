@@ -146,6 +146,27 @@ Compare-PCScopeInventory -Previous $before -Current $after | Format-Table catego
 
 Files are UTF-8 with BOM and use the list separator of the system language (`;` in Spanish, `,` in English), so a double-click opens them correctly in Excel, accents included.
 
+## Alerts by Telegram or email
+
+With `-SendAlerts`, PCScope sends the **new** critical issues (or warnings too, with `"minLevel": "warning"`) and the changes marked for review. It is designed to run unattended, for example after the scheduled collection:
+
+```powershell
+.\PCScope.ps1 -OutputPath \\fileserver\it\pcscope -ReportOnly -SendAlerts
+```
+
+```
+PCScope - Contoso office - 2 new alert(s)
+
+SALES-LT07
+  [CRITICAL] Drive C: is 96% full (9.6 GB free)
+ACC-PC03
+  [REVIEW] New local administrator: CONTOSO\lucia.ruiz
+```
+
+- **No spam:** alerts already sent are remembered in `alerts-state.json`. A fixed issue is forgotten, so it alerts again if it comes back.
+- **Setup:** copy [`alerts.example.json`](alerts.example.json) to `alerts.json` and enable Telegram (chat id) and/or email (SMTP server, port, sender, recipients). `alerts.json` is in `.gitignore`.
+- **Secrets stay out of files:** the Telegram bot token and the SMTP password are read from the `PCSCOPE_TELEGRAM_TOKEN` and `PCSCOPE_SMTP_PASSWORD` environment variables.
+
 ## Collecting from a whole office
 
 PCScope supports two approaches, which can be combined. Both save one JSON per computer in the same folder, and one command builds the dashboard:
@@ -220,6 +241,8 @@ Each device page says how it was collected: locally, remotely or by the schedule
 | `-RulesPath` | Health rules file. Default: `rules.json` |
 | `-HistoryLimit` | Previous inventories kept per device. Default: 30 (`0` disables history) |
 | `-ExportCsv` | Also export devices, issues, software and changes to CSV |
+| `-SendAlerts` | Send new critical issues and notable changes by Telegram and/or email |
+| `-AlertConfigPath` | Alert settings. Default: `alerts.json` |
 | `-Open` | Open the dashboard when finished |
 
 The functions can also be used on their own:
@@ -243,6 +266,7 @@ Get-PCScopeInventory | ConvertTo-Json -Depth 8
 - [`src/Remote.ps1`](src/Remote.ps1) – sends the collector source to remote computers with `Invoke-Command`, saves each JSON and reports which computers failed and why.
 - [`src/Task.ps1`](src/Task.ps1) – installs and removes the scheduled task (copy, action, trigger, SYSTEM principal and settings).
 - [`src/History.ps1`](src/History.ps1) – archives previous inventories and compares snapshots into a timeline of changes.
+- [`src/Alert.ps1`](src/Alert.ps1) – selects the new alerts, remembers what was sent and delivers them by Telegram or SMTP.
 - [`src/Rules.ps1`](src/Rules.ps1) – evaluates [`rules.json`](rules.json) against an inventory and returns its issues, most severe first.
 - [`src/Report.ps1`](src/Report.ps1) – validates every JSON file, skips broken ones and embeds the data and issues in the template. Data is escaped so that text like `</script>` in a device name cannot break or inject code into the page.
 - [`src/report-template.html`](src/report-template.html) – the dashboard: vanilla HTML, CSS and JavaScript, no dependencies.
@@ -289,7 +313,7 @@ To try the dashboard with fictitious data locally:
 - [x] Remote collection with `Invoke-Command` (WinRM) and a scheduled-task installer
 - [x] History: detect changes between runs (new software, RAM changes, disk growth)
 - [x] CSV export from the console and from every dashboard view
-- [ ] Optional email/Telegram alerts for critical issues and notable changes
+- [x] Email/Telegram alerts for new critical issues and notable changes, without repeats
 
 ## License
 

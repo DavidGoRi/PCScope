@@ -48,6 +48,13 @@
     Also export devices, issues, software and changes to CSV files in
     <OutputPath>\export (they open directly in Excel).
 
+.PARAMETER SendAlerts
+    Send new critical issues and notable changes by Telegram and/or email, as
+    configured in -AlertConfigPath. Already-sent alerts are not repeated.
+
+.PARAMETER AlertConfigPath
+    Alert configuration. Default: alerts.json (see alerts.example.json).
+
 .PARAMETER Open
     Open the dashboard in the default browser when finished.
 
@@ -95,6 +102,10 @@ param(
 
     [switch] $ExportCsv,
 
+    [switch] $SendAlerts,
+
+    [string] $AlertConfigPath = (Join-Path $PSScriptRoot 'alerts.json'),
+
     [switch] $Open
 )
 
@@ -102,6 +113,7 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'src\Collector.ps1')
 . (Join-Path $PSScriptRoot 'src\Remote.ps1')
 . (Join-Path $PSScriptRoot 'src\Report.ps1')
+. (Join-Path $PSScriptRoot 'src\Alert.ps1')
 
 $OutputPath = $PSCmdlet.GetUnresolvedProviderPathFromPSPath($OutputPath)
 $dataPath = Join-Path $OutputPath 'data'
@@ -170,4 +182,10 @@ if (-not $NoReport) {
 if ($ExportCsv) {
     $exported = @(Export-PCScopeCsv -DataPath $dataPath -OutputPath (Join-Path $OutputPath 'export') -RulesPath $RulesPath)
     Write-Host "CSV files: $(Split-Path -Path $exported[0].FullName -Parent) ($(($exported | ForEach-Object { $_.Name }) -join ', '))"
+}
+
+if ($SendAlerts) {
+    $fleet = @(Get-PCScopeFleet -DataPath $dataPath -RuleSet (Get-PCScopeRuleSet -Path $RulesPath))
+    $sentAlerts = @(Invoke-PCScopeAlert -Fleet $fleet -Config (Get-PCScopeAlertConfig -Path $AlertConfigPath) -StatePath (Join-Path $OutputPath 'alerts-state.json'))
+    if ($sentAlerts.Count) { Write-Host "Alerts sent: $($sentAlerts.Count) new." } else { Write-Host 'Alerts: nothing new to report.' }
 }

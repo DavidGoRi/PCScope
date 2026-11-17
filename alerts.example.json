@@ -1,0 +1,18 @@
+{
+  "title": "PCScope - Contoso office",
+  "minLevel": "critical",
+  "includeNotableChanges": true,
+  "telegram": {
+    "enabled": false,
+    "chatId": "123456789"
+  },
+  "email": {
+    "enabled": false,
+    "server": "smtp.office365.com",
+    "port": 587,
+    "useSsl": true,
+    "user": "it-alerts@contoso.com",
+    "from": "it-alerts@contoso.com",
+    "to": [ "it@contoso.com" ]
+  }
+}

@@ -12,3 +12,7 @@ _site/
 *.swp
 Thumbs.db
 desktop.ini
+
+# Alert settings and state (chat ids, addresses)
+alerts.json
+alerts-state.json
