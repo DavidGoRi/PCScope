@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "computerName": "SALES-LT07",
+  "collectedAt": "2026-11-17T09:05:00",
+  "collector": { "version": "0.1.0", "elevated": false, "durationSeconds": 6.8 },
+  "hardware": {
+    "manufacturer": "Northwind Devices",
+    "model": "TravelBook 14 </script><b>bold</b>",
+    "serialNumber": "NWD-000007",
+    "biosVersion": "0.9.3",
+    "biosDate": "2021-02-01T00:00:00",
+    "formFactor": "Laptop",
+    "cpu": { "name": "Intel(R) Core(TM) i5-8250U", "cores": 4, "logicalProcessors": 8, "maxClockMHz": 1800 },
+    "memory": { "totalGB": 7.8, "freeGB": 0.9, "usedPercent": 88, "modules": [ { "slot": "ChannelA", "capacityGB": 8, "speedMHz": 2400, "vendor": "Fabrikam" } ] }
+  },
+  "storage": {
+    "volumes": [ { "drive": "C:", "label": "", "fileSystem": "NTFS", "sizeGB": 237.9, "freeGB": 9.6, "usedPercent": 96, "bitLocker": "Off" } ],
+    "physical": [ { "name": "Generic SSD 256GB", "mediaType": "SSD", "busType": "SATA", "sizeGB": 238.5, "healthStatus": "Warning", "operationalStatus": "Predictive Failure" } ]
+  },
+  "battery": { "chargePercent": 41, "designCapacityMWh": 52000, "fullChargeCapacityMWh": 26500, "healthPercent": 51 },
+  "operatingSystem": {
+    "name": "Microsoft Windows 10 Pro", "displayVersion": "22H2", "build": "19045.3803", "architecture": "64-bit", "language": "es-ES",
+    "installDate": "2021-03-01T10:00:00", "lastBoot": "2026-10-20T08:00:00", "uptimeDays": 28.0, "domain": "WORKGROUP", "partOfDomain": false,
+    "lastUpdate": { "title": "2026-07 Cumulative Update for Windows 10 (KB0000002)", "date": "2026-07-09T03:00:00", "source": "Windows Update history" },
+    "pendingReboot": { "required": true, "reasons": [ "Windows Update" ] }
+  },
+  "security": {
+    "defender": { "serviceEnabled": true, "antivirusEnabled": false, "realTimeProtection": false, "signatureLastUpdated": "2026-07-01T06:00:00", "signatureAgeDays": 139 },
+    "antivirusProducts": [ { "name": "Windows Defender", "enabled": false, "upToDate": false } ],
+    "firewall": [ { "profile": "Domain", "enabled": true }, { "profile": "Private", "enabled": true }, { "profile": "Public", "enabled": false } ],
+    "uacEnabled": true,
+    "secureBoot": false,
+    "localAdministrators": [ { "name": "SALES-LT07\\Administrator", "type": "User", "source": "Local" }, { "name": "SALES-LT07\\sales", "type": "User", "source": "Local" } ]
+  },
+  "network": [ { "description": "Wi-Fi", "macAddress": "00:11:22:33:44:07", "ipv4": [ "192.168.1.57" ], "ipv6": [], "gateway": [ "192.168.1.1" ], "dnsServers": [ "8.8.8.8" ], "dhcpEnabled": true } ],
+  "users": { "currentUser": "SALES-LT07\\sales", "lastLoggedOnUser": ".\\sales" },
+  "software": [
+    { "name": "Google Chrome", "version": "118.0.5993.70", "publisher": "Google LLC", "installDate": "2023-10-15", "scope": "Machine" },
+    { "name": "7-Zip 24.08 (x64)", "version": "24.08", "publisher": "Igor Pavlov", "installDate": null, "scope": "Machine" },
+    { "name": "TeamViewer", "version": "15.40.8", "publisher": "TeamViewer", "installDate": "2023-04-02", "scope": "Machine" }
+  ],
+  "errors": [ { "section": "battery", "message": "Example error kept for testing" } ]
+}

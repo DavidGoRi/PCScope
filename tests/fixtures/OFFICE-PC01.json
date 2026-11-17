@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "computerName": "OFFICE-PC01",
+  "collectedAt": "2026-11-17T09:00:00",
+  "collector": { "version": "0.1.0", "elevated": false, "durationSeconds": 4.2 },
+  "hardware": {
+    "manufacturer": "Contoso Computers",
+    "model": "OptiDesk 5000",
+    "serialNumber": "CNT-000001",
+    "biosVersion": "1.12.0",
+    "biosDate": "2024-05-10T00:00:00",
+    "formFactor": "Desktop",
+    "cpu": { "name": "Intel(R) Core(TM) i5-12500", "cores": 6, "logicalProcessors": 12, "maxClockMHz": 3000 },
+    "memory": { "totalGB": 16, "freeGB": 7.5, "usedPercent": 53, "modules": [ { "slot": "DIMM1", "capacityGB": 16, "speedMHz": 3200, "vendor": "Fabrikam" } ] }
+  },
+  "storage": {
+    "volumes": [ { "drive": "C:", "label": "", "fileSystem": "NTFS", "sizeGB": 476.3, "freeGB": 210.4, "usedPercent": 56, "bitLocker": "On" } ],
+    "physical": [ { "name": "Fabrikam NVMe 512GB", "mediaType": "SSD", "busType": "NVMe", "sizeGB": 476.9, "healthStatus": "Healthy", "operationalStatus": "OK" } ]
+  },
+  "battery": null,
+  "operatingSystem": {
+    "name": "Microsoft Windows 11 Pro", "displayVersion": "24H2", "build": "26100.4000", "architecture": "64-bit", "language": "en-US",
+    "installDate": "2025-01-15T10:00:00", "lastBoot": "2026-11-16T08:00:00", "uptimeDays": 1.0, "domain": "CONTOSO", "partOfDomain": true,
+    "lastUpdate": { "title": "2026-11 Cumulative Update for Windows 11 (KB0000001)", "date": "2026-11-12T03:00:00", "source": "Windows Update history" },
+    "pendingReboot": { "required": false, "reasons": [] }
+  },
+  "security": {
+    "defender": { "serviceEnabled": true, "antivirusEnabled": true, "realTimeProtection": true, "signatureLastUpdated": "2026-11-17T06:00:00", "signatureAgeDays": 0 },
+    "antivirusProducts": [ { "name": "Windows Defender", "enabled": true, "upToDate": true } ],
+    "firewall": [ { "profile": "Domain", "enabled": true }, { "profile": "Private", "enabled": true }, { "profile": "Public", "enabled": true } ],
+    "uacEnabled": true,
+    "secureBoot": true,
+    "localAdministrators": [ { "name": "OFFICE-PC01\\Administrator", "type": "User", "source": "Local" }, { "name": "CONTOSO\\Domain Admins", "type": "Group", "source": "ActiveDirectory" } ]
+  },
+  "network": [ { "description": "Ethernet", "macAddress": "00:11:22:33:44:01", "ipv4": [ "10.0.0.21" ], "ipv6": [], "gateway": [ "10.0.0.1" ], "dnsServers": [ "10.0.0.2" ], "dhcpEnabled": true } ],
+  "users": { "currentUser": "CONTOSO\\ana.garcia", "lastLoggedOnUser": "CONTOSO\\ana.garcia" },
+  "software": [
+    { "name": "Google Chrome", "version": "131.0.6778.86", "publisher": "Google LLC", "installDate": "2026-10-01", "scope": "Machine" },
+    { "name": "Microsoft 365 Apps for business", "version": "16.0.18129.20158", "publisher": "Microsoft Corporation", "installDate": "2025-01-15", "scope": "Machine" },
+    { "name": "7-Zip 24.08 (x64)", "version": "24.08", "publisher": "Igor Pavlov", "installDate": null, "scope": "Machine" }
+  ],
+  "errors": []
+}

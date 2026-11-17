@@ -1,0 +1,10 @@
+# Real inventory data and generated dashboards: they contain serial numbers,
+# IP/MAC addresses, user names and installed software. Never commit them.
+output/
+*.report.html
+
+# Editors and OS
+.vscode/
+*.swp
+Thumbs.db
+desktop.ini
