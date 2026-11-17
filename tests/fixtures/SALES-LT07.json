@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "computerName": "SALES-LT07",
   "collectedAt": "2026-11-17T09:05:00",
-  "collector": { "version": "0.1.0", "elevated": false, "durationSeconds": 6.8 },
+  "collector": { "version": "0.3.0", "method": "remote", "runAs": "CONTOSO\\it.admin", "elevated": true, "durationSeconds": 6.8 },
   "hardware": {
     "manufacturer": "Northwind Devices",
     "model": "TravelBook 14 </script><b>bold</b>",

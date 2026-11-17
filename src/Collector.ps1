@@ -10,7 +10,7 @@
     Errors are recorded in the "errors" list of the result instead.
 #>
 
-$script:PCScopeVersion = '0.1.0'
+$script:PCScopeVersion = '0.3.0'
 $script:PCScopeSchemaVersion = 1
 
 #region Helpers
@@ -522,11 +522,17 @@ function Get-PCScopeInventory {
     .SYNOPSIS
         Collects the full inventory of the local computer.
 
+    .PARAMETER Method
+        How the inventory was obtained, recorded in the result: 'local' (run on
+        the computer itself) or 'remote' (run through PowerShell remoting).
+
     .EXAMPLE
         Get-PCScopeInventory | ConvertTo-Json -Depth 8
     #>
     [CmdletBinding()]
-    param()
+    param(
+        [ValidateSet('local', 'remote')] [string] $Method = 'local'
+    )
 
     $started = Get-Date
     $errors = New-Object System.Collections.Generic.List[object]
@@ -548,6 +554,8 @@ function Get-PCScopeInventory {
         collectedAt   = ConvertTo-PCScopeIsoDate $started
         collector     = [ordered]@{
             version         = $script:PCScopeVersion
+            method          = $Method
+            runAs           = [Security.Principal.WindowsIdentity]::GetCurrent().Name
             elevated        = Test-PCScopeElevated
             durationSeconds = $null
         }

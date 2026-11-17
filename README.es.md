@@ -33,7 +33,30 @@ cd PCScope
 powershell -ExecutionPolicy Bypass -File .\PCScope.ps1 -Open
 ```
 
-Para toda una oficina, ejecútalo en cada equipo con `-OutputPath \\servidor\it\pcscope -NoReport`. Después genera el panel una sola vez con `-ReportOnly -Open`.
+### Toda una oficina
+
+Hay dos formas, y se pueden combinar.
+
+**A. Recogida remota por WinRM:** no se instala nada en los equipos. El código viaja con la petición y solo vuelve el JSON. Se contacta con todos los equipos a la vez, y los que fallan quedan en `failed-computers.txt` para reintentarlo.
+
+```powershell
+.\PCScope.ps1 -ComputerListPath .\equipos.txt -Credential (Get-Credential) -Open
+```
+
+**B. Tarea programada en cada equipo:** se ejecuta como SYSTEM a diario, al arrancar o al iniciar sesión, con un retraso aleatorio para no saturar la carpeta compartida. Se instala desde una consola de administrador o con una directiva de grupo:
+
+```powershell
+.\tools\Install-PCScopeTask.ps1 -OutputPath \\servidor\it\pcscope
+.\tools\Install-PCScopeTask.ps1 -Uninstall
+```
+
+Después, el panel se genera una sola vez:
+
+```powershell
+.\PCScope.ps1 -OutputPath \\servidor\it\pcscope -ReportOnly -Open
+```
+
+PCScope nunca guarda contraseñas.
 
 Para probar el panel con datos ficticios:
 

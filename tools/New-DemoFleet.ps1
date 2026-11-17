@@ -176,7 +176,14 @@ for ($i = 0; $i -lt $Count; $i++) {
         schemaVersion = 1
         computerName  = $name
         collectedAt   = Format-Date $collectedAt
-        collector     = [ordered]@{ version = '0.2.0'; elevated = (Test-Chance 0.5); durationSeconds = (Get-RandomNumber 3 9 1) }
+        collector     = $(
+            # Most devices report through the scheduled task, the rest were collected remotely by IT
+            $viaTask = Test-Chance 0.7
+            [ordered]@{
+                version = '0.3.0'; method = $(if ($viaTask) { 'local' } else { 'remote' })
+                runAs = $(if ($viaTask) { 'NT AUTHORITY\SYSTEM' } else { 'CONTOSO\it.admin' })
+                elevated = $true; durationSeconds = (Get-RandomNumber 3 9 1)
+            })
         hardware      = [ordered]@{
             manufacturer = $hw.Maker; model = $hw.Model; serialNumber = ('DEMO{0:D6}' -f $rng.Next(1, 999999))
             biosVersion = ('1.{0}.{1}' -f $rng.Next(1, 30), $rng.Next(0, 9)); biosDate = Format-Date ($Now.AddDays(-$rng.Next(200, 1500)).Date)

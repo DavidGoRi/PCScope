@@ -107,23 +107,75 @@ Status: WARNING (2 issue(s))
 Dashboard: C:\PCScope\output\report.html
 ```
 
-### A whole office
+## Collecting from a whole office
 
-Run PCScope on each computer pointing to the same shared folder (for example from a logon script or a scheduled task), then build the dashboard once:
+PCScope supports two approaches, which can be combined. Both save one JSON per computer in the same folder, and one command builds the dashboard:
+
+| | **A. Remote collection (pull)** | **B. Scheduled task (push)** |
+|---|---|---|
+| How | IT runs PCScope once and it contacts every computer over PowerShell remoting | Each computer runs PCScope on a schedule and writes to a shared folder |
+| Install on the computers | Nothing | A local copy in `C:\ProgramData\PCScope` and a task |
+| Needs | WinRM enabled and an admin account on the targets | A share where computer accounts can write |
+| Best for | Ad-hoc audits, offices with WinRM already on | Laptops that are often away; regular reports with no one involved |
+
+### A. Remote collection over WinRM
 
 ```powershell
-# On every computer
-.\PCScope.ps1 -OutputPath \\fileserver\it\pcscope -NoReport
+# A few computers
+.\PCScope.ps1 -ComputerName PC01, PC02, SALES-LT07 -Open
 
-# Once, from the IT computer
+# A list (one name per line, # for comments) with a specific account
+.\PCScope.ps1 -ComputerListPath .\computers.txt -Credential (Get-Credential CONTOSO\it.admin) -Open
+```
+
+Nothing is copied to the targets: the collector code travels with the request, runs there and only the JSON comes back. All computers are contacted in parallel (`-ThrottleLimit`, 32 by default). Unreachable computers are listed with the reason and saved to `failed-computers.txt`, ready to retry with `-ComputerListPath`.
+
+```
+Collecting inventory of 3 computer(s) over PowerShell remoting...
+  [OK]     PC01 (4.1 s)
+  [OK]     PC02 (5.3 s)
+  [FAILED] SALES-LT07: Connecting to remote server SALES-LT07 failed: WinRM cannot complete the operation...
+Collected 2 of 3 computer(s).
+```
+
+**Prerequisites:** PowerShell remoting enabled on the targets (`Enable-PSRemoting`, or the Group Policy *Allow remote server management through WinRM* plus a firewall rule) and an account in their local Administrators group. In a workgroup, add the targets to `TrustedHosts` on the IT computer.
+
+### B. Scheduled task on each computer
+
+From an elevated PowerShell on each computer, or deployed with a Group Policy startup script:
+
+```powershell
+.\tools\Install-PCScopeTask.ps1 -OutputPath \\fileserver\it\pcscope            # daily at 09:30
+.\tools\Install-PCScopeTask.ps1 -OutputPath \\fileserver\it\pcscope -Schedule AtStartup
+.\tools\Install-PCScopeTask.ps1 -OutputPath \\fileserver\it\pcscope -WhatIf    # show what it would do
+.\tools\Install-PCScopeTask.ps1 -Uninstall
+```
+
+The task `\PCScope\PCScope inventory`:
+
+- runs as **SYSTEM**, so it works with nobody logged on and reads everything (battery capacity, BitLocker…);
+- spreads the runs: up to 30 minutes of random delay for the daily trigger, 10 minutes after boot or logon, so the whole office does not hit the share at once;
+- stops after 15 minutes, never runs twice at the same time and still runs on battery.
+
+Because it runs as SYSTEM, the computer writes to the share with its own account (`CONTOSO\PC01$`): give **Domain Computers** *Modify* permission on the data folder only, and keep the dashboard somewhere only IT can read.
+
+### Building the dashboard
+
+```powershell
 .\PCScope.ps1 -OutputPath \\fileserver\it\pcscope -ReportOnly -Open
 ```
+
+Each device page says how it was collected: locally, remotely or by the scheduled task.
 
 ### Parameters
 
 | Parameter | Description |
 |---|---|
 | `-OutputPath` | Results folder. Default: `.\output` |
+| `-ComputerName` | Collect from these computers over PowerShell remoting |
+| `-ComputerListPath` | Text file with one computer per line |
+| `-Credential` | Account for the remote connections (default: current user) |
+| `-ThrottleLimit` | Computers contacted at the same time. Default: 32 |
 | `-NoReport` | Only collect and save the JSON |
 | `-ReportOnly` | Do not collect; rebuild the dashboard from the existing JSON files |
 | `-RulesPath` | Health rules file. Default: `rules.json` |
@@ -147,6 +199,8 @@ Get-PCScopeInventory | ConvertTo-Json -Depth 8
 ```
 
 - [`src/Collector.ps1`](src/Collector.ps1) – one function per section (`Get-PCScopeHardware`, `Get-PCScopeSecurity`…), built on CIM/WMI, the registry and built-in cmdlets. Each section runs inside its own error handler.
+- [`src/Remote.ps1`](src/Remote.ps1) – sends the collector source to remote computers with `Invoke-Command`, saves each JSON and reports which computers failed and why.
+- [`src/Task.ps1`](src/Task.ps1) – installs and removes the scheduled task (copy, action, trigger, SYSTEM principal and settings).
 - [`src/Rules.ps1`](src/Rules.ps1) – evaluates [`rules.json`](rules.json) against an inventory and returns its issues, most severe first.
 - [`src/Report.ps1`](src/Report.ps1) – validates every JSON file, skips broken ones and embeds the data and issues in the template. Data is escaped so that text like `</script>` in a device name cannot break or inject code into the page.
 - [`src/report-template.html`](src/report-template.html) – the dashboard: vanilla HTML, CSS and JavaScript, no dependencies.
@@ -158,10 +212,12 @@ Some details that took care to get right:
 - BitLocker state is read through the shell property `System.Volume.BitLockerProtection`, which unlike `Get-BitLockerVolume` does not need administrator rights.
 - Windows PowerShell 5.1 serializes dates as `\/Date(…)\/` and unrolls one-item arrays; PCScope converts dates to ISO 8601 and keeps lists as JSON arrays (both covered by tests).
 - Defender may report "real-time protection off" simply because another antivirus is active, so the antivirus check uses Windows Security Center instead.
+- Scheduled-task boot and logon triggers silently ignore `-RandomDelay`; PCScope sets their `Delay` property instead (found by a test).
+- .NET file APIs resolve relative paths against the process directory, not the PowerShell location, so every path is resolved with `GetUnresolvedProviderPathFromPSPath` first.
 
 ## Privacy
 
-The JSON files and the dashboard contain serial numbers, IP and MAC addresses, user names and the list of installed software. Store them somewhere only IT can read. The `output/` folder is excluded in `.gitignore` so real data is never committed; the screenshots and the live demo use fictitious devices generated by [`tools/New-DemoFleet.ps1`](tools/New-DemoFleet.ps1).
+The JSON files and the dashboard contain serial numbers, IP and MAC addresses, user names and the list of installed software. Store them somewhere only IT can read. PCScope never stores credentials: remote collection uses the current session or a `-Credential` typed at run time, and the scheduled task uses the computer's own account. The `output/` folder is excluded in `.gitignore` so real data is never committed; the screenshots and the live demo use fictitious devices generated by [`tools/New-DemoFleet.ps1`](tools/New-DemoFleet.ps1).
 
 ## Development
 
@@ -187,7 +243,7 @@ To try the dashboard with fictitious data locally:
 - [x] Read-only collector, JSON output and self-contained dashboard
 - [x] Health rules in a configurable `rules.json` (thresholds, enable/disable checks)
 - [x] Live demo on GitHub Pages with a generated fleet of fictitious devices
-- [ ] Remote collection with `Invoke-Command` (WinRM) and a scheduled-task installer
+- [x] Remote collection with `Invoke-Command` (WinRM) and a scheduled-task installer
 - [ ] History: detect changes between runs (new software, RAM changes, disk growth)
 - [ ] CSV export and optional email/Telegram alerts for critical issues
 

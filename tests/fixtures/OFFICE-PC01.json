@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "computerName": "OFFICE-PC01",
   "collectedAt": "2026-11-17T09:00:00",
-  "collector": { "version": "0.1.0", "elevated": false, "durationSeconds": 4.2 },
+  "collector": { "version": "0.3.0", "method": "local", "runAs": "NT AUTHORITY\\SYSTEM", "elevated": true, "durationSeconds": 4.2 },
   "hardware": {
     "manufacturer": "Contoso Computers",
     "model": "OptiDesk 5000",

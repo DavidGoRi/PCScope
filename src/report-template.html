@@ -256,6 +256,15 @@ function renderSoftware() {
   </section>`;
 }
 
+function collectedText(d) {
+  const c = d.collector || {};
+  const how = c.method === "remote" ? "remotely" : /\\SYSTEM$|^SYSTEM$/i.test(c.runAs || "") ? "by scheduled task" : c.method === "local" ? "locally" : "";
+  const parts = [`Collected ${how} ${fmtDate(d.collectedAt)}`.replace("  ", " "), `in ${esc(c.durationSeconds)} s`];
+  if (c.runAs) parts.push(`as ${esc(c.runAs)}`);
+  if (c.elevated === false) parts.push("without admin rights");
+  return parts.join(" · ");
+}
+
 function dl(pairs) {
   return `<dl>${pairs.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${v}</dd>`).join("")}</dl>`;
 }
@@ -289,7 +298,7 @@ function renderDetail(name) {
   return `<div class="detail-head">
       <a class="btn" href="#">← All devices</a>
       <h1>${esc(d.computerName)}</h1>${pill(d._status, LEVEL_TEXT[d._status])}
-      <span class="meta">Collected ${fmtDate(d.collectedAt)} in ${esc((d.collector || {}).durationSeconds)} s${(d.collector || {}).elevated ? "" : " · without admin rights"}</span>
+      <span class="meta">${collectedText(d)}</span>
     </div>
     <div class="grid">
       <section class="card span-all"><h3>Issues (${d._issues.length})</h3>${issues}</section>
